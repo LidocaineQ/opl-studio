@@ -37,17 +37,24 @@ async function freePort() {
 async function waitFor(url, timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs;
   let lastError;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(url);
-      if (response.ok) return response;
-      lastError = new Error(`${url} returned ${response.status}`);
-    } catch (error) {
-      lastError = error;
+  // Undici can leave only unreferenced connection timers during cold start.
+  // Keep this bounded readiness wait alive until success or its deadline.
+  const keepAlive = setInterval(() => {}, 1_000);
+  try {
+    while (Date.now() < deadline) {
+      try {
+        const response = await fetch(url, { signal: AbortSignal.timeout(5_000) });
+        if (response.ok) return response;
+        lastError = new Error(`${url} returned ${response.status}`);
+      } catch (error) {
+        lastError = error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250));
     }
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    throw lastError ?? new Error(`${url} did not become available`);
+  } finally {
+    clearInterval(keepAlive);
   }
-  throw lastError ?? new Error(`${url} did not become available`);
 }
 
 function authenticatedHeaders(cookie, csrfToken, extra = {}) {
