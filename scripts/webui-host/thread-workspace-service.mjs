@@ -1,3 +1,4 @@
+import { readWorkspaceGit } from "./workspace-git.mjs";
 import { access, lstat, opendir, open, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { constants } from "node:fs";
@@ -536,7 +537,12 @@ export function createThreadWorkspaceService({
     };
   }
 
-  return Object.freeze({ list, read, search, resolveAccess, download, readBytes });
+  async function git(request = {}) {
+    assertRequestObject(request, "git");
+    const threadId = requiredString(request.threadId, "threadId");
+    return readWorkspaceGit(await resolveWorkspace(threadId), threadId);
+  }
+  return Object.freeze({ list, read, search, resolveAccess, download, readBytes, git });
 }
 
 export default createThreadWorkspaceService;

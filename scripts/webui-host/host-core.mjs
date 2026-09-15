@@ -138,7 +138,10 @@ export class OplHostCore extends EventEmitter {
       let lease;
       try { lease = await operation; }
       finally { this.manualUpdateOperations.delete(operation); }
-      if (lease.status === "completed") return lease.result;
+      if (lease.status === "completed") {
+        if (lease.result?.status === "executed") this.emit("event", { method: "host/app-state-changed", params: { actionId: payload.actionId } });
+        return lease.result;
+      }
       return { actionId: payload.actionId, dryRun: false, status: "error", receiptKind: "execute", canExecute: false,
         confirmationRequired: false, command: "", commandArgs: [], timedOut: false,
         reasonCode: "app_server_busy", exitCode: -1, stderr: "app_server_busy", stdout: "" };
@@ -152,6 +155,7 @@ export class OplHostCore extends EventEmitter {
     ) {
       await this.codex.reloadConfiguration();
     }
+    if (payload?.dryRun === false && receipt?.status === "executed") this.emit("event", { method: "host/app-state-changed", params: { actionId: payload.actionId } });
     return receipt;
   }
 
@@ -222,6 +226,7 @@ export class OplHostCore extends EventEmitter {
       case "notifyCompletion": return this.platform.notifyCompletion(payload);
       case "listThreadWorkspace": return this.threadWorkspace.list(payload);
       case "readThreadWorkspaceFile": return this.threadWorkspace.read(payload);
+      case "readThreadWorkspaceGit": return this.threadWorkspace.git(payload);
       case "readThreadWorkspaceBytes": return this.threadWorkspace.readBytes(payload);
       case "searchThreadWorkspace": return this.threadWorkspace.search(payload);
       case "accessThreadWorkspace": {

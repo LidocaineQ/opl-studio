@@ -79,13 +79,13 @@ declare module "@deepseek-ai/dsh-client-ui-slots" {
 }
 
 const emptyRootBinding: StandardSourceBinding = Object.freeze({ key: undefined, hooks: Object.freeze({}), keyedHooks: Object.freeze({}), props: Object.freeze({}) });
-const focusableSelector = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const focusableSelector = 'summary, button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const SettingsContributionSlotContext = createContext<((options?: { only?: string }) => ReactNode) | null>(null);
 
 function focusableElements(root: HTMLElement | null): HTMLElement[] {
   if (!root) return [];
   return Array.from(root.querySelectorAll<HTMLElement>(focusableSelector))
-    .filter((element) => !element.closest('[hidden], [aria-hidden="true"]') && element.getClientRects().length > 0);
+    .filter((element) => !element.closest('[hidden], [aria-hidden="true"]') && element.getClientRects().length > 0 && element.checkVisibility?.() !== false);
 }
 
 function useSettingsDialogFocus(rootRef: RefObject<HTMLElement | null>) {

@@ -1,3 +1,7 @@
+import { actionReceiptView, type ActionReceiptView } from "./actionReceiptView";
+import { SubagentsPanel } from "./SubagentsPanel";
+import { WorkspaceGitPanel } from "./WorkspaceGitPanel";
+import { featureRefsWithCodexStatus } from "./featureModel";
 import { Button, projectUserText, Modal, Pill } from "@deepseek-ai/dsh-client-ui-primitives";
 import { Streamdown } from "streamdown";
 import {
@@ -149,15 +153,6 @@ import { selectProjectProgress } from "./projectProgress";
 
 type ContextTabId = OplStudioDetailTab["id"];
 type FilesDetailView = "workspace" | "inputs" | "results";
-
-type StartupReadStatus = "loading" | "ready" | "error" | "timeout";
-
-type StartupReadinessStage = {
-  id: "app-state-and-agents" | "conversations" | "models" | "capabilities";
-  label: string;
-  status: StartupReadStatus;
-  detail?: string;
-};
 
 const managedUpdateActionSpecs = [
   {
@@ -878,6 +873,7 @@ export function App({
     command: OplUiContributionCommand;
     input: Record<string, unknown>;
   } | null>(null);
+  const [settingsActionReceipt, setSettingsActionReceipt] = useState<ActionReceiptView | null>(null);
   const [settingsActionBusyKey, setSettingsActionBusyKey] = useState<string | null>(null);
   const [settingsActionFeedback, setSettingsActionFeedback] = useState<SettingsActionFeedback | null>(null);
   const [dockerDiagnostic, setDockerDiagnostic] = useState<SettingsDockerDiagnostic | null>(null);
@@ -931,14 +927,11 @@ export function App({
   const [artifactPreviewOpen, setArtifactPreviewOpen] = useState(false);
   const [primaryView, setPrimaryView] = useState<OplStudioPrimaryView>("conversation");
   const [startupAttempt, setStartupAttempt] = useState(0);
-  const [startupTimedOut, setStartupTimedOut] = useState(false);
-  const [startupGateOpen, setStartupGateOpen] = useState(false);
   const t = uiCopy[settings.locale];
   const normalizedCapabilityQuery = capabilityQuery.trim().toLowerCase();
   const standardAgentOptions = useMemo<ComposerAgentOption[]>(() => model.packageLifecycle
     .filter((item) => (
       item.packageRole === "standard_agent"
-      && item.official
       && item.readiness.selectable
       && item.homeShortcuts.some((shortcut) => Boolean(shortcut.route))
     ))
@@ -1062,9 +1055,7 @@ export function App({
     () => selectProjectProgress(projectProgressWorkspace, model.workItemRuntime, settings.locale),
     [model.workItemRuntime, projectProgressWorkspace, settings.locale]
   );
-  const defaultWorkItemId = model.activeProjectLines.find((line) => line.status === "running")?.activeRunId
-    ?? model.activeProjectLines[0]?.activeRunId
-    ?? undefined;
+  const defaultWorkItemId = model.workItemRuntime?.items.find(item => item.workspacePath === projectProgressWorkspace)?.workItemId;
   const [selectedRuntimeWorkItemId, setSelectedRuntimeWorkItemId] = useState<string | undefined>();
   const selectedWorkItemId = selectedRuntimeWorkItemId ?? defaultWorkItemId;
   const selectedRuntimeWorkItem = selectedWorkItemId
@@ -1098,37 +1089,6 @@ export function App({
   const selectedPreview = previewItems.find((preview) => preview.id === selectedPreviewId) ?? previewItems[0];
   const sidebarSources = runDetail.files.map((file) => ({ id: file.id, label: file.title, summary: file.summary }));
   const modelOptions = useMemo(() => resolveCodexModelOptions(codexCatalog), [codexCatalog]);
-  const startupStages: StartupReadinessStage[] = [
-    {
-      id: "app-state-and-agents",
-      label: settings.locale === "zh" ? "应用状态与智能体" : "App state and Agents",
-      status: stateStatus === "loading" && startupTimedOut ? "timeout" : stateStatus,
-      ...(stateError ? { detail: stateError } : {})
-    },
-    {
-      id: "conversations",
-      label: settings.locale === "zh" ? "对话" : "Conversations",
-      status: threadDirectoryStatus === "loading" && startupTimedOut ? "timeout" : threadDirectoryStatus,
-      ...(threadDirectoryError ? { detail: threadDirectoryError } : {})
-    },
-    {
-      id: "models",
-      label: settings.locale === "zh" ? "模型" : "Models",
-      status: modelCatalogStatus === "loading" && startupTimedOut ? "timeout" : modelCatalogStatus,
-      ...(modelCatalogError ? { detail: modelCatalogError } : {})
-    },
-    {
-      id: "capabilities",
-      label: settings.locale === "zh" ? "Skill、Plugin 与 App" : "Skills, plugins, and apps",
-      status: (capabilityStatus === "idle" || capabilityStatus === "loading") && startupTimedOut
-        ? "timeout"
-        : capabilityStatus === "idle" ? "loading" : capabilityStatus,
-      ...(capabilityError ? { detail: capabilityError } : {})
-    }
-  ];
-  const startupReadyCount = startupStages.filter((stage) => stage.status === "ready").length;
-  const startupHasFailure = startupStages.some((stage) => stage.status === "error" || stage.status === "timeout");
-  const startupAllReady = startupReadyCount === startupStages.length;
   const {
     model: resolvedModel,
     reasoningEffort: resolvedReasoning,
@@ -1345,12 +1305,15 @@ export function App({
     };
   }, [bridge]);
 
+  const stateReadSequence = useRef(0);
   function loadState(profile = settings.runtimeProfile) {
+    const sequence = ++stateReadSequence.current;
     setStateStatus("loading");
     setStateError("");
     return bridge
       .readState(profile)
       .then((state) => {
+        if (sequence !== stateReadSequence.current) return null;
         const nextModel = deriveWorkbenchModelFromState(state);
         onHostStateChange?.(state);
         setModel(nextModel);
@@ -1379,6 +1342,7 @@ export function App({
         return nextModel;
       })
       .catch((error) => {
+        if (sequence !== stateReadSequence.current) return null;
         setModel((current) => current.gatewayAccount
           ? { ...current, gatewayAccount: markGatewayAccountCacheStale(current.gatewayAccount) }
           : current);
@@ -1418,6 +1382,9 @@ export function App({
         message: settings.locale === "zh" ? `${label}已完成，只读检查结果已生成。` : `${label} completed and produced a read-only check result.`
       };
     }
+    if (receipt.status === "no_op" || receipt.status === "unsupported") {
+      return { tone: "neutral", message: receipt.status === "no_op" ? (settings.locale === "zh" ? "Owner 回读：无需变更。" : "Owner reports no changes needed.") : (settings.locale === "zh" ? "Owner 尚不支持此操作；请刷新或在所属服务处理。" : "This action is unsupported by the owner; refresh or use the owner service.") };
+    }
     if (receipt.status === "executed") {
       return {
         tone: "success",
@@ -1439,9 +1406,11 @@ export function App({
   async function runSettingsAction(request: SettingsActionRequest) {
     setSettingsActionBusyKey(request.key);
     setSettingsActionFeedback(null);
+    setSettingsActionReceipt(null);
     try {
       if (request.previewOnly) {
         const preview = await bridge.executeAction({ actionId: request.actionId, payload: request.payload, dryRun: true });
+        setSettingsActionReceipt(actionReceiptView(preview));
         setSettingsActionFeedback(settingsReceiptFeedback(preview, request.label));
         return;
       }
@@ -1451,11 +1420,12 @@ export function App({
           return;
         }
         const preview = await bridge.executeAction({ actionId: request.actionId, payload: request.payload, dryRun: true });
-        if (preview.status === "error" || preview.status === "timed_out") {
+        if (!["preview_ready", "confirmation_required"].includes(preview.status)) {
+          setSettingsActionReceipt(actionReceiptView(preview));
           setSettingsActionFeedback(settingsReceiptFeedback(preview, request.label));
           return;
         }
-        setSettingsActionConfirmation({ request, previewStatus: preview.status });
+        setSettingsActionConfirmation({ request, previewStatus: preview.status, preview: actionReceiptView(preview), confirmationId: preview.confirmationId, receiptId: preview.receiptId });
         return;
       }
       const receipt = await bridge.executeAction({
@@ -1476,6 +1446,7 @@ export function App({
         else await loadState(settings.runtimeProfile);
         if (initializationActionIds.has(request.actionId)) await loadInitialize();
       }
+      setSettingsActionReceipt(actionReceiptView(receipt));
       setSettingsActionFeedback(diagnostic ? {
         tone: diagnostic.status === "attention" || (diagnostic.attentionCount ?? 0) > 0 ? "attention" : "success",
         message: settings.locale === "zh"
@@ -1497,7 +1468,7 @@ export function App({
     try {
       const receipt = await bridge.executeAction({
         actionId: confirmation.request.actionId,
-        payload: { ...confirmation.request.payload, confirmed: true },
+        payload: { ...confirmation.request.payload, confirmed: true, ...(confirmation.confirmationId ? { confirmationId: confirmation.confirmationId } : {}), ...(confirmation.receiptId ? { receiptId: confirmation.receiptId } : {}) },
         dryRun: false
       });
       if (receipt.status === "executed") {
@@ -1506,6 +1477,7 @@ export function App({
         else await loadState(settings.runtimeProfile);
         if (initializationActionIds.has(confirmation.request.actionId)) await loadInitialize();
       }
+      setSettingsActionReceipt(actionReceiptView(receipt));
       setSettingsActionFeedback(settingsReceiptFeedback(receipt, confirmation.request.label));
       setSettingsActionConfirmation(null);
     } catch (error) {
@@ -1764,10 +1736,10 @@ export function App({
     }
   }
 
-  async function reconcileCanonicalThread(threadId: string, reason: string, expectedTurnId?: string): Promise<CodexThread> {
+  async function reconcileCanonicalThread(threadId: string, reason: string, expectedTurnId?: string, snapshot?: CodexThread): Promise<CodexThread> {
     const sequence = (reconcileSequenceRef.current.get(threadId) ?? 0) + 1;
     reconcileSequenceRef.current.set(threadId, sequence);
-    const readback = await bridge.readThread({ threadId, includeTurns: true });
+    const readback = snapshot ?? await bridge.readThread({ threadId, includeTurns: true });
     if (reconcileSequenceRef.current.get(threadId) !== sequence) return readback;
 
     const trackedTurnId = trackedTurnIdsRef.current.get(threadId);
@@ -1830,38 +1802,44 @@ export function App({
     return readback;
   }
 
+  const openThreadSequence = useRef(0);
   async function openThread(thread: WorkbenchThreadItem): Promise<string | null> {
-    setPrimaryView("conversation");
-    setSelectedRuntimeWorkItemId(undefined);
     setThreadActionBusy(true);
     setThreadActionError("");
-    selectedThreadIdRef.current = thread.id;
-    setCodexThreadId(thread.id);
-    const affinityProjectId = threadProjects.find((project) => project.threads.some((item) => item.id === thread.id))?.id;
-    updateUiMetadata({
-      selectedThreadId: thread.id,
-      selectedProjectId: affinityProjectId
-        ?? uiMetadata.selectedProjectId
-    });
-    rememberThreadAffinity(thread.id, affinityProjectId);
-    promptRef.current = drafts.prompts[thread.id] ?? "";
-    setPrompt(promptRef.current);
-    activeTurnRef.current = null;
-    setActiveTurnId(null);
-    setSendState("idle");
-    releaseComposerSelections(composerSelections);
-    setComposerSelections([]);
-    setComposerPaletteOpen(false);
+    const previousThreadId = selectedThreadIdRef.current;
+    const sequence = ++openThreadSequence.current;
     try {
-      await reconcileCanonicalThread(thread.id, "open");
+      // Resolve the destination before replacing the current conversation or attachments.
+      const snapshot = await bridge.readThread({ threadId: thread.id, includeTurns: true });
+      if (sequence !== openThreadSequence.current || selectedThreadIdRef.current !== previousThreadId) return null;
+      setPrimaryView("conversation");
+      setSelectedRuntimeWorkItemId(undefined);
+      selectedThreadIdRef.current = thread.id;
+      setCodexThreadId(thread.id);
+      const affinityProjectId = threadProjects.find(project => project.threads.some(item => item.id === thread.id))?.id;
+      updateUiMetadata({ selectedThreadId: thread.id, selectedProjectId: affinityProjectId ?? uiMetadata.selectedProjectId });
+      rememberThreadAffinity(thread.id, affinityProjectId);
+      promptRef.current = drafts.prompts[thread.id] ?? "";
+      setPrompt(promptRef.current);
+      releaseComposerSelections(composerSelections);
+      setComposerSelections([]);
+      setComposerPaletteOpen(false);
+      await reconcileCanonicalThread(thread.id, "open", undefined, snapshot);
       return null;
     } catch (error) {
       const message = String(error);
-      setThreadActionError(message);
+      if (sequence === openThreadSequence.current) setThreadActionError(message);
       return message;
     } finally {
-      setThreadActionBusy(false);
+      if (sequence === openThreadSequence.current) setThreadActionBusy(false);
     }
+  }
+
+  async function openCanonicalThreadRef(threadId: string): Promise<string | null> {
+    const known = allThreadsRef.current.find(thread => thread.id === threadId);
+    // ID comes only from an owner-projected ref or a canonical child event.
+    return openThread(known ?? { id: threadId, title: threadId, status: "unknown", preview: "", archived: false,
+      isTemporaryWorkspace: false, currentWorkspace: false });
   }
 
   async function runServiceRecoveryAction(action: ServiceRecoveryAction) {
@@ -1979,7 +1957,7 @@ export function App({
         : persistedProject ?? selectedThreadProject ?? currentWorkspaceProject
           ?? directoryProjects.find((project) => !project.projectless);
       if (selectedProject && selectedProject.id !== uiMetadata.selectedProjectId) updateUiMetadata({ selectedProjectId: selectedProject.id });
-      if (openSavedThread && scope !== "archived" && selectedThreadId) {
+      if (openSavedThread && scope !== "archived" && selectedThreadId && !promptRef.current && selectedThreadIdRef.current === selectedThreadId) {
         const savedThread = activeProjects.flatMap((project) => project.threads).find((thread) => thread.id === selectedThreadId);
         if (savedThread) {
           const openError = await openThread(savedThread);
@@ -2018,7 +1996,6 @@ export function App({
     const loadKey = `${settings.runtimeProfile}:${startupAttempt}`;
     if (startupLoadKeyRef.current === loadKey) return;
     startupLoadKeyRef.current = loadKey;
-    setStartupTimedOut(false);
     void Promise.all([
       loadState(settings.runtimeProfile),
       loadThreadDirectory(true),
@@ -2028,20 +2005,9 @@ export function App({
   }, [bridge, settings.runtimeProfile, startupAttempt]);
 
   async function retryStartup() {
-    setStartupGateOpen(false);
-    setStartupTimedOut(false);
     await bridge.retryDesktopHost();
     setStartupAttempt((attempt) => attempt + 1);
   }
-
-  useEffect(() => {
-    if (startupGateOpen || startupAllReady) {
-      if (startupAllReady && !startupGateOpen) setStartupGateOpen(true);
-      return;
-    }
-    const timeout = globalThis.setTimeout(() => setStartupTimedOut(true), 20_000);
-    return () => globalThis.clearTimeout(timeout);
-  }, [startupAllReady, startupAttempt, startupGateOpen]);
 
   useEffect(() => {
     void loadInitialize();
@@ -2053,10 +2019,20 @@ export function App({
     void bridge.readNativeAppUpdateStatus().then(setNativeAppUpdate).catch(() => setNativeAppUpdate(null));
   }, [bridge]);
 
+  useEffect(() => {
+    const restore = () => {
+      const threadId = selectedThreadIdRef.current;
+      if (document.visibilityState === "visible" && threadId) void reconcileCanonicalThread(threadId, "window-restored").catch(error => setThreadActionError(String(error)));
+    };
+    document.addEventListener("visibilitychange", restore);
+    return () => document.removeEventListener("visibilitychange", restore);
+  }, [bridge]);
+
   useEffect(() => bridge.subscribeEvents((event) => {
     const method = eventMethod(event);
     const params = eventParams(event);
     setEventFeed((items) => [formatEvent(event), ...items].slice(0, 8));
+    if (method === "host/app-state-changed") void loadState(settings.runtimeProfile);
     if (method === "bridge.ready") {
       const targets = collectCanonicalReconcileTargets(
         selectedThreadIdRef.current,
@@ -2586,6 +2562,7 @@ export function App({
   }
 
   function startNewChat() {
+    openThreadSequence.current += 1;
     setPrimaryView("conversation");
     setSelectedRuntimeWorkItemId(undefined);
     const currentWorkspaceProject = threadProjects.find((project) => !project.projectless && project.threads.some((thread) => thread.currentWorkspace));
@@ -2873,8 +2850,10 @@ export function App({
 
   const studioConversationBody = (
     <div className="opl-dsh-thread" ref={conversationRef as never}>
+      {(threadDirectoryStatus === "error" || modelCatalogStatus === "error") && <div role="status" data-testid="opl-codex-recovery"><p>{threadDirectoryError || modelCatalogError}</p><button type="button" onClick={() => void retryStartup().catch(error => setThreadActionError(String(error)))}>{settings.locale === "zh" ? "重试连接" : "Retry connection"}</button><a href="https://github.com/gaofeng21cn/opl-studio/issues/new" target="_blank" rel="noreferrer">{settings.locale === "zh" ? "报告启动问题" : "Report startup issue"}</a></div>}
       <CodexServerRequestPanel requests={pendingServerRequests} locale={settings.locale} error={pendingServerRequestError} onRespond={(request, response) => void respondToServerRequest(request, response)} />
       {threadActionError ? <p className="thread-read-error" role="alert">{threadActionError}</p> : null}
+      <SubagentsPanel key={codexThreadId ?? "new"} threadId={codexThreadId} threads={allThreads} messages={messages} locale={settings.locale} onOpen={openCanonicalThreadRef} />
       {messages.map((message, index) => (
         <article key={message.id} data-testid={message.role === "assistant" ? "opl-conversation-event" : undefined} className={`message ${message.role}${message.subagent ? " subagent" : ""}`}>
           {message.role === "system" ? <span className="message-label">{message.subagent ? (settings.locale === "zh" ? "子智能体" : "Subagent") : t.runtime}</span> : null}
@@ -2958,7 +2937,7 @@ export function App({
             <strong>{settings.locale === "zh" ? "当前项目" : "Current project"}</strong>
             <button type="button" aria-label={t.refresh} title={t.refresh} onClick={() => void loadState(settings.runtimeProfile)}><RefreshCw aria-hidden="true" size={14} /></button>
           </div>
-          <ProjectProgressPanel locale={settings.locale} progress={projectProgress} refreshing={stateStatus === "loading"} />
+          <ProjectProgressPanel locale={settings.locale} progress={selectedRuntimeWorkItem?.workspacePath ? selectProjectProgress(selectedRuntimeWorkItem.workspacePath, model.workItemRuntime, settings.locale) : projectProgress} refreshing={stateStatus === "loading"} />
         </section>
         <section data-testid="opl-files-results-panel" className="context-block opl-files-surface" hidden={activeContextTab !== "opl-files-results-panel"}>
           <nav className="opl-files-section-nav" aria-label={settings.locale === "zh" ? "文件与结果" : "Files and results"}>
@@ -2967,6 +2946,8 @@ export function App({
             <button type="button" data-active={activeFilesView === "results" || undefined} onClick={() => setActiveFilesView("results")}><Files aria-hidden="true" size={14} /><span>{settings.locale === "zh" ? "结果" : "Results"}</span></button>
           </nav>
           {activeFilesView === "workspace" ? (
+            <>
+            <WorkspaceGitPanel threadId={codexThreadId ?? null} locale={settings.locale} readGit={bridge.readThreadWorkspaceGit} />
             <WorkspaceFilesPanel
               threadId={codexThreadId}
               workspace={currentSession?.workspace ?? ""}
@@ -2977,6 +2958,7 @@ export function App({
               nativeFileAccess={bridge.platformCapabilities.nativeWorkspaceFileAccess === true}
               searchWorkspace={bridge.searchThreadWorkspace}
             />
+            </>
           ) : null}
           {activeFilesView === "inputs" ? (
             <div className="opl-files-list" data-testid="opl-input-files-list">
@@ -3057,7 +3039,7 @@ export function App({
 
   const renderStudioSettings = (activeDestination: SettingsDestinationId, renderContribution?: (options?: { only?: string }) => ReactNode, onNavigate?: (destination: SettingsDestinationId) => void) => (
     <SettingsPanel
-      model={model}
+      model={{ ...model, features: featureRefsWithCodexStatus(model.features, threadDirectoryStatus, threadDirectoryError, stateStatus) }}
       managedUpdate={managedUpdate}
       actionViewModel={settingsActionViewModel}
       settings={settings}
@@ -3080,6 +3062,7 @@ export function App({
       activeDestination={activeDestination}
       onNavigate={onNavigate}
       onRefresh={() => void loadState(settings.runtimeProfile)}
+      readMemory={bridge.readFullDrilldown}
       onRefreshInitialization={() => { void loadInitialize(); }}
       setupCapabilities={{
         ...setupCapabilities,
@@ -3098,6 +3081,7 @@ export function App({
       onGatewayLogin={loginGatewayAccount}
       manifestInstallAction={projectedManifestInstallAction}
       actionBusyKey={settingsActionBusyKey}
+      actionReceipt={settingsActionReceipt}
       actionFeedback={settingsActionFeedback}
       pendingConfirmation={settingsActionConfirmation}
       onConfirmAction={() => void confirmSettingsAction()}
@@ -3124,57 +3108,6 @@ export function App({
       })()}
     />
   );
-
-  if (!startupGateOpen) {
-    const statusLabel: Record<StartupReadStatus, string> = settings.locale === "zh"
-      ? { loading: "加载中", ready: "已就绪", error: "失败", timeout: "超时" }
-      : { loading: "Loading", ready: "Ready", error: "Failed", timeout: "Timed out" };
-    const statusIcon = (status: StartupReadStatus) => {
-      if (status === "ready") return <Check aria-hidden="true" size={16} />;
-      if (status === "error") return <AlertTriangle aria-hidden="true" size={16} />;
-      if (status === "timeout") return <Clock3 aria-hidden="true" size={16} />;
-      return <LoaderCircle aria-hidden="true" className="startup-readiness-spinner" size={16} />;
-    };
-    return (
-      <>
-        <style>{codexWorkbenchStyles}</style>
-        <main className="startup-readiness" data-testid="opl-startup-readiness" aria-busy={!startupHasFailure}>
-          <section className="startup-readiness-content" aria-labelledby="opl-startup-title">
-            <div className="startup-readiness-wordmark">One Person Lab</div>
-            <h1 id="opl-startup-title">{settings.locale === "zh" ? "正在准备工作区" : "Preparing your workspace"}</h1>
-            <p className="startup-readiness-count" aria-live="polite">
-              {settings.locale === "zh"
-                ? `已就绪 ${startupReadyCount} / ${startupStages.length}`
-                : `${startupReadyCount} / ${startupStages.length} ready`}
-            </p>
-            <ol className="startup-readiness-stages">
-              {startupStages.map((stage) => (
-                <li key={stage.id} data-status={stage.status}>
-                  <span className="startup-readiness-stage-icon">{statusIcon(stage.status)}</span>
-                  <span className="startup-readiness-stage-copy">
-                    <strong>{stage.label}</strong>
-                    {stage.detail && stage.status !== "ready" ? <span title={stage.detail}>{stage.detail}</span> : null}
-                  </span>
-                  <span className="startup-readiness-stage-status">{statusLabel[stage.status]}</span>
-                </li>
-              ))}
-            </ol>
-            {startupHasFailure ? (
-              <div className="startup-readiness-actions">
-                <button type="button" className="startup-readiness-retry" onClick={() => void retryStartup()}><RefreshCw aria-hidden="true" size={16} />{settings.locale === "zh" ? "重新加载" : "Retry"}</button>
-                <button type="button" className="startup-readiness-limited" onClick={() => setStartupGateOpen(true)}>
-                  {settings.locale === "zh" ? "受限进入" : "Enter with limits"}<ArrowRight aria-hidden="true" size={16} />
-                </button>
-                <p>{settings.locale === "zh"
-                  ? "未就绪的功能将保持不可用，已加载的功能可以继续使用。"
-                  : "Unavailable features remain disabled; loaded features can still be used."}</p>
-              </div>
-            ) : null}
-          </section>
-        </main>
-      </>
-    );
-  }
 
   return renderShell({
     locale: settings.locale,
@@ -3208,8 +3141,7 @@ export function App({
       },
       ...model.packageLifecycle.filter((item) => (
         item.packageRole === "standard_agent"
-        && item.official
-        && item.readiness.selectable
+          && item.readiness.selectable
         && item.homeShortcuts.some((shortcut) => Boolean(shortcut.route))
       )).sort((left, right) => (
         (standardAgentSeatPresentationZh[left.packageId]?.order ?? Number.MAX_SAFE_INTEGER)
@@ -3250,6 +3182,7 @@ export function App({
         setSelectedRuntimeWorkItemId(item.workItemId);
         requestDetails("opl-project-progress-panel");
       }}
+      onOpenThread={openCanonicalThreadRef}
       readDomainDetailView={readDomainDetailView}
     />,
     openPrimaryView: setPrimaryView,

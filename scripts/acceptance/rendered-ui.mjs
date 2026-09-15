@@ -150,8 +150,8 @@ try {
 
   const focusBounds = await evaluate(`() => {
     const dialog = document.querySelector('[role="dialog"]');
-    const focusable = dialog ? Array.from(dialog.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
-      .filter((element) => element.getClientRects().length > 0) : [];
+    const focusable = dialog ? Array.from(dialog.querySelectorAll('summary, button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+      .filter((element) => element.getClientRects().length > 0 && element.checkVisibility?.() !== false) : [];
     const label = (element) => element?.getAttribute('aria-label') ?? element?.textContent?.trim();
     focusable[0]?.focus();
     return { count: focusable.length, first: label(focusable[0]), last: label(focusable.at(-1)) };

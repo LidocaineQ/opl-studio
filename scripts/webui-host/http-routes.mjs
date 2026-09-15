@@ -162,6 +162,7 @@ async function dispatchApi(req, res, hostCore) {
     ["/api/threads/rename", (value) => hostCore.invoke("renameThread", value)],
     ["/api/threads/delete", (value) => hostCore.invoke("deleteThread", value)],
     ["/api/threads/workspace/list", (value) => hostCore.invoke("listThreadWorkspace", value)],
+    ["/api/threads/workspace/git", (value) => hostCore.invoke("readThreadWorkspaceGit", value)],
     ["/api/threads/workspace/bytes", (value) => hostCore.invoke("readThreadWorkspaceBytes", value)],
     ["/api/threads/workspace/read", (value) => hostCore.invoke("readThreadWorkspaceFile", value)],
     ["/api/threads/workspace/search", (value) => hostCore.invoke("searchThreadWorkspace", value)],

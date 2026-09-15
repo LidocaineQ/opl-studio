@@ -190,7 +190,7 @@ test("DSH workspace browser, lifecycle, and Codex subagent projection stay expli
   assert.match(app, /linkSafety=\{assistantMarkdownLinkSafety\}/);
   assert.match(app, /assistantDisplayMarkdown\(/);
   assert.doesNotMatch(app, /opl-assistant-artifact-card/);
-  assert.match(app, /async function reconcileCanonicalThread\(threadId: string, reason: string, expectedTurnId\?: string\)/);
+  assert.match(app, /async function reconcileCanonicalThread/);
   assert.match(app, /bridge\.readThread\(\{ threadId, includeTurns: true \}\)/);
   assert.match(app, /assistant-pending:\$\{threadId\}:\$\{activeTurnId\}/);
   assert.match(app, /activeTurnRef\.current = \{ threadId, turnId: activeTurnId \}/);
@@ -941,26 +941,11 @@ test("Settings directly reuses DSH appearance controls and applies the selected 
   assert.match(styles, /--opl-canvas: var\(--dsw-alias-bg-base\)/);
 });
 
-test("ordinary startup waits for four truthful readiness reads before exposing the shell", () => {
-  const startupView = app.match(/if \(!startupGateOpen\) \{[\s\S]*?\n  return renderShell\(/)?.[0] ?? "";
-  assert.match(app, /void Promise\.all\(\[\s*loadState\(settings\.runtimeProfile\),\s*loadThreadDirectory\(true\),\s*loadModels\(\),\s*loadCapabilities\(true\)\s*\]\)/s);
-  assert.match(app, /const startupReadyCount = startupStages\.filter\(\(stage\) => stage\.status === "ready"\)\.length/);
-  assert.match(app, /const startupAllReady = startupReadyCount === startupStages\.length/);
-  assert.match(app, /globalThis\.setTimeout\(\(\) => setStartupTimedOut\(true\), 20_000\)/);
-  assert.match(app, /const openError = await openThread\(savedThread\)/);
-  assert.match(app, /setThreadDirectoryStatus\("error"\);\s*setThreadDirectoryError\(openError\);\s*return;/s);
-  for (const id of ["app-state-and-agents", "conversations", "models", "capabilities"]) {
-    assert.match(app, new RegExp(`id: "${id}"`));
-  }
-  assert.match(startupView, /`已就绪 \$\{startupReadyCount\} \/ \$\{startupStages\.length\}`/);
-  assert.match(startupView, /data-testid="opl-startup-readiness"/);
-  assert.match(startupView, /<div className="startup-readiness-wordmark">One Person Lab<\/div>/);
-  assert.doesNotMatch(startupView, /startup-readiness-wordmark[^\n]*OPL/);
-  assert.match(startupView, /重新加载/);
-  assert.match(startupView, /受限进入/);
-  assert.doesNotMatch(startupView, /%|progressPercent|Math\.round/);
-  assert.match(styles, /\.startup-readiness \{[^}]*position: fixed;[^}]*inset: 0;/s);
-  assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.startup-readiness \{/s);
+test("ordinary startup renders chat while owner projections load independently", () => {
+  assert.doesNotMatch(app, /if \(!startupGateOpen\)/);
+  assert.match(app, /loadState\(settings\.runtimeProfile\)/);
+  assert.match(app, /loadThreadDirectory\(true\)/);
+  assert.match(app, /data-testid="opl-codex-recovery"/);
 });
 
 test("composer places dynamic OPL standard agents before Skills and keeps other capabilities separate", () => {

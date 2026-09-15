@@ -571,7 +571,8 @@ function compactWorkItem(value) {
       ])
     } : undefined,
     session_activity: selectedFields(value.session_activity, [
-      "state", "active_session_count", "latest_activity_kind", "latest_activity_state", "latest_activity_at"
+      "state", "active_session_count", "latest_activity_kind", "latest_activity_state", "latest_activity_at",
+      "active_session_refs", "nonterminal_session_refs", "latest_session_ref"
     ]),
     attention: selectedFields(value.attention, [
       "kind", "reason", "owner", "responsible_component", "issue", "impact", "repair_action", "expected_outcome"
@@ -588,6 +589,9 @@ function compactWorkItem(value) {
     action: selectedFields(value.action, [
       "kind", "title", "summary", "owner", "owner_kind", "owner_display_name", "action_ref"
     ]),
+    domain_detail_views: Array.isArray(value.domain_detail_views) ? value.domain_detail_views.slice(0, 64).map(view => selectedFields(view, [
+      "item_id", "view_id", "view_kind", "title", "schema_ref", "schema_version", "revision", "digest", "availability"
+    ])) : undefined,
     stage_map: Array.isArray(value.stage_map) ? value.stage_map.slice(0, 64).map(compactWorkItemStage) : [],
     freshness: selectedFields(value.freshness, [
       "state", "inventory_observed_at", "execution_observed_at", "last_transition_time", "reason"
@@ -1039,6 +1043,11 @@ export function createOplPassthrough({
         : await run(command, args.slice(1), { cwd, env,
           timeoutMs: ["settings_apply_opl_base_update", "settings_apply_opl_packages", "agent_package_update", "agent_package_repair"].includes(actionId)
             ? 20 * 60_000 : actionId === "codex_install" ? 120_000 : 45_000 });
+      const ownerJson = jsonValue(result.stdout);
+      const ownerExecution = ownerJson?.app_action_execution ?? ownerJson;
+      const ownerStatus = ownerExecution?.result?.status ?? ownerExecution?.status;
+      const ownerFailure = ownerExecution?.success === false || ownerExecution?.result?.success === false
+        || ["error", "failed", "blocked", "unavailable", "not_configured", "owner_action_required"].includes(ownerStatus);
       return {
         actionId,
         dryRun,
@@ -1051,10 +1060,11 @@ export function createOplPassthrough({
           ? "timed_out"
           : (blockedReadOnly
               ? "blocked_read_only"
-              : (!dryRun && !confirmed ? "confirmation_required" : (result.exitCode === 0 ? (dryRun ? "preview_ready" : "executed") : "error"))),
+              : (!dryRun && !confirmed ? "confirmation_required" : (result.exitCode === 0 ? ownerFailure ? "error" : ownerStatus === "unsupported" ? "unsupported" : ["no_op", "noop"].includes(ownerStatus) ? "no_op" : (dryRun ? "preview_ready" : "executed") : "error"))),
         ...commandReadback(args, result),
         payload,
-        stdoutJson: jsonValue(result.stdout),
+        stdoutJson: ownerJson,
+        ...(ownerFailure ? { blockedReason: `owner_${ownerStatus ?? "failed"}` } : {}),
         stderrJson: jsonValue(result.stderr),
         ...(payload.confirmationId ? { confirmationId: payload.confirmationId } : {}),
         ...(payload.receiptId ? { receiptId: payload.receiptId } : {}),

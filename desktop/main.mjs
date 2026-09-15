@@ -295,7 +295,7 @@ async function createDesktopHost(appLogDirectory) {
         owner: "one-person-lab-app_desktop_host",
         carrier: "electron_desktop",
         status: "available",
-        application: { systemInfo: { logDir: app.getPath("logs") } },
+        application: { systemInfo: { logDir: app.getPath("logs"), platform: process.platform, arch: process.arch } },
         setLogDirectorySupported: true
       }),
       setLogDirectory: (request) => appLogDirectory.setLogDirectory(request)

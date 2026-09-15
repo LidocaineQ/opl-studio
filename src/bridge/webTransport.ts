@@ -190,6 +190,7 @@ export function installWebTransport(): void {
       };
     },
     listThreadWorkspace: (request) => postJson("/api/threads/workspace/list", request),
+    readThreadWorkspaceGit: (request) => postJson("/api/threads/workspace/git", request),
     readThreadWorkspaceBytes: (request) => postJson("/api/threads/workspace/bytes", request),
     readThreadWorkspaceFile: (request) => postJson("/api/threads/workspace/read", request),
     accessThreadWorkspace: async (request) => {

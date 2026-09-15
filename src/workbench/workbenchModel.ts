@@ -1,3 +1,4 @@
+import { deriveFeatureRefs } from "./featureModel";
 import {
   rendererModuleIdForPreviewKind,
   type RendererPreviewKind
@@ -47,6 +48,8 @@ export type WorkbenchThreadMessage = {
     type: "collabAgentToolCall" | "subAgentActivity";
     agentRole?: string;
     agentNickname?: string;
+    childThreadIds?: string[];
+    status?: string;
   };
 };
 
@@ -116,6 +119,21 @@ export type WorkbenchActionRef = {
   delegatedSurface?: string;
   canSubmitToSafeActionShell?: boolean;
   routeRequiresPayload?: boolean;
+};
+
+export type WorkbenchFeatureState = "available" | "degraded" | "not_configured" | "unavailable" | "owner_action_required";
+export type WorkbenchFeatureRef = {
+  featureId: string;
+  state: WorkbenchFeatureState;
+  owner: string;
+  sourceRef: string;
+  summary?: string;
+  actions: WorkbenchActionRef[];
+  label: string;
+  labelEn: string;
+  destination: import("./featureModel").FeatureDestination;
+  nextStep: string;
+  affectsCodex: boolean;
 };
 
 export type WorkbenchTraceRef = {
@@ -219,6 +237,7 @@ export type WorkItemRuntimeItem = {
   workspacePath?: string;
   workItemId: string;
   domainWorkItemId?: string;
+  canonicalThreadIds?: string[];
   workItemScopeId?: string;
   identityState?: string;
   title: string;
@@ -687,6 +706,7 @@ export type WorkbenchSettingsProjection = {
 };
 
 export type WorkbenchModel = {
+  features: WorkbenchFeatureRef[];
   purposes: WorkbenchPurpose[];
   sessions: WorkspaceSession[];
   results: WorkbenchArtifactRef[];
@@ -719,6 +739,7 @@ export const workbenchBridgeUnavailableDiagnostic = {
 } as const;
 
 export const initialWorkbenchModel: WorkbenchModel = {
+  features: deriveFeatureRefs(undefined),
   purposes: ["research", "grant", "presentation", "review"],
   managedCompanions: [],
   uiContributions: emptyUiContributionsProjection,
@@ -1076,6 +1097,8 @@ function readWorkItemRuntimeProjection(value: unknown): WorkItemRuntimeProjectio
       projectDisplayName: asString(identity?.project_display_name) ?? projectId,
       ...(workspacePath ? { workspacePath } : {}),
       workItemId,
+      canonicalThreadIds: [...new Set([...asStringArray(sessionActivity?.active_session_refs), ...asStringArray(sessionActivity?.nonterminal_session_refs), asString(sessionActivity?.latest_session_ref)])]
+        .flatMap(ref => typeof ref === "string" && /^codex:\/\/threads\/[0-9A-Za-z-]+$/.test(ref) ? [ref.slice("codex://threads/".length)] : []),
       ...(domainWorkItemId ? { domainWorkItemId } : {}),
       ...(workItemScopeId ? { workItemScopeId } : {}),
       ...(identityState ? { identityState } : {}),
@@ -1352,7 +1375,9 @@ function messageFromRecord(record: Record<string, unknown>, index: number): Work
       id: firstString(record, ["id", "itemId", "item_id", "callId", "call_id"]) ?? `subagent-item-${index}`,
       role: "system",
       text,
-      subagent: { type: subagentType, agentRole, agentNickname }
+      subagent: { type: subagentType, agentRole, agentNickname, status: status ?? undefined,
+        childThreadIds: [...new Set([...asStringArray(record.receiverThreadIds), ...Object.keys(asRecord(record.agentsStates) ?? {})])]
+          .filter(id => /^[0-9A-Za-z-]+$/.test(id)) }
     };
   }
   const explicitRole = firstString(record, ["role", "author"]);
@@ -1360,12 +1385,13 @@ function messageFromRecord(record: Record<string, unknown>, index: number): Work
     ? "user"
     : explicitRole === "assistant" || /agent.?message|assistant.?message|output.?message/.test(type)
       ? "assistant"
-      : explicitRole === "system"
+      : explicitRole === "system" || ["commandexecution", "filechange", "mcpToolCall".toLowerCase(), "tool", "process", "diff", "file", "websearch"].includes(type)
         ? "system"
         : null;
   if (!role) return null;
-  const text = firstString(record, ["text", "message", "output_text"])
-    ?? textFromContent(record.content ?? record.parts ?? record.items);
+  const text = firstString(record, ["text", "message", "output_text", "aggregatedOutput", "command", "query"])
+    ?? textFromContent(record.content ?? record.parts ?? record.items ?? record.result)
+    ?? "";
   if (!text.trim()) return null;
   return {
     id: firstString(record, ["id", "itemId", "item_id", "messageId", "message_id"]) ?? `thread-message-${index}`,
@@ -3402,6 +3428,7 @@ export function deriveWorkbenchModelFromState(state: unknown, fallback: Workbenc
 
   return {
     ...fallback,
+    features: deriveFeatureRefs(state, baseActions),
     sessions,
     results: buildResultsFromTasks(taskDrilldowns),
     deliverables,

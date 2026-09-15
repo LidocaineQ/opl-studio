@@ -33,6 +33,7 @@ type RuntimeOverviewPageProps = {
   onRefresh(): void;
   onRunServiceRecovery(action: ServiceRecoveryAction): void;
   onOpenWorkItem(item: WorkItemRuntimeItem): void;
+  onOpenThread?(threadId: string): Promise<string | null>;
   readDomainDetailView?: DomainDetailViewRead;
 };
 
@@ -132,8 +133,11 @@ export function RuntimeOverviewPage({
   onRefresh,
   onRunServiceRecovery,
   onOpenWorkItem,
+  onOpenThread,
   readDomainDetailView
 }: RuntimeOverviewPageProps) {
+  const [threadError, setThreadError] = useState("");
+  const [openingThread, setOpeningThread] = useState(false);
   const [agentId, setAgentId] = useState("all");
   const [projectId, setProjectId] = useState("all");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -416,6 +420,7 @@ export function RuntimeOverviewPage({
       {stateStatus === "ready" && !projection ? <p className="runtime-overview-empty">{copy.noData}</p> : null}
       {projection && items.length === 0 ? <p className="runtime-overview-empty">{copy.noItems}</p> : null}
 
+      {threadError && <p role="alert">{threadError}</p>}
       <div className="runtime-work-list" aria-live="polite">
         {items.map((item) => {
           const category = statusCategory(item);
@@ -432,6 +437,12 @@ export function RuntimeOverviewPage({
                   <h3>{item.title}</h3>
                   <span><UserRound aria-hidden="true" size={13} />{item.agentDisplayName}</span>
                 </button>
+              </div>
+              <div className="runtime-thread-links">
+                {item.canonicalThreadIds?.length && onOpenThread ? item.canonicalThreadIds.map(threadId => <button key={threadId} type="button" disabled={openingThread} onClick={async () => {
+                  setOpeningThread(true); setThreadError("");
+                  try { setThreadError(await onOpenThread(threadId) ?? ""); } catch (error) { setThreadError(String(error)); } finally { setOpeningThread(false); }
+                }}>{locale === "zh" ? "打开会话" : "Open thread"} · {threadId.slice(0, 8)}</button>) : <small>{locale === "zh" ? "Owner 未提供可打开的会话引用" : "No canonical thread ref projected"}</small>}
               </div>
               <div className="runtime-work-status"><span>{item.statusLabel}</span>{item.activeSessionCount ? <small>{item.activeSessionCount} {locale === "zh" ? "个活跃会话" : "active sessions"}</small> : null}</div>
               <div className="runtime-work-progress">

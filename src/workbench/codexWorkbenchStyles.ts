@@ -5248,4 +5248,19 @@ export const codexWorkbenchStyles = `
     .settings-detail-header, .settings-content { padding-left: 16px; padding-right: 16px; }
     .settings-detail-title-row { gap: 12px; }
   }
+
+  .feature-status-panel { margin-top: 24px; }
+  .feature-status-panel header, .workspace-git-panel header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .feature-status-panel details { margin: 8px 0; padding: 10px; border: 1px solid var(--opl-border, #8884); border-radius: 8px; }
+  .feature-status-panel summary { cursor: pointer; }
+  .feature-status-panel summary span { margin-left: 12px; opacity: .7; }
+  .feature-status-panel p, .feature-status-panel dd { overflow-wrap: anywhere; }
+  .feature-action { margin: 12px 0; }
+  .feature-action label { display: block; margin: 6px 0; }
+  .feature-action input { max-width: 100%; border: 1px solid #8886; padding: 6px; }
+  .feature-status-panel button, .workspace-git-panel button, .runtime-thread-links button { padding: 6px 10px; border: 1px solid #8886; border-radius: 6px; margin: 4px; }
+  .workspace-git-panel { min-width: 0; padding: 8px; }
+  .workspace-git-panel pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; }
+  .workspace-git-panel li { overflow-wrap: anywhere; }
+  .feature-status-panel input { max-width: 100%; }
 `;

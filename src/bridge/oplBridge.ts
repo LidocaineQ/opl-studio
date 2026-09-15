@@ -25,6 +25,8 @@ export type OplActionReceiptStatus =
   | "confirmation_required"
   | "blocked_read_only"
   | "executed"
+  | "no_op"
+  | "unsupported"
   | "error"
   | "timed_out";
 export type OplEventKind = "tool" | "process" | "diff" | "file" | "receipt" | "user_input" | "permission";
@@ -181,6 +183,8 @@ export type CarrierDiagnosticsReadback = {
   application?: {
     systemInfo: {
       logDir: string;
+      platform?: string;
+      arch?: string;
     };
   };
   setLogDirectorySupported: boolean;
@@ -532,7 +536,7 @@ export type OplBridgeEvent = OplBridgeTypeEvent | OplBridgeMethodEvent;
 
 export type OplStudioSurface = Pick<
   OplBridge,
-  "platformCapabilities" | "beginWindowDrag" | "readState" | "readInitialize" | "readFullDrilldown" | "readContribution" | "readDomainDetailView" | "executeAction" | "readCodexModels" | "readCodexCapabilities" | "readCodexPermissionProfiles" | "listPendingServerRequests" | "respondToServerRequest" | "pickFiles" | "pickDirectory" | "resolveDroppedInputs" | "releaseInputs" | "notifyCompletion" | "listThreadWorkspace" | "readThreadWorkspaceFile" | "readThreadWorkspaceBytes" | "searchThreadWorkspace" | "accessThreadWorkspace" | "setLogDirectory" | "sendMessage" | "steerTurn" | "interruptTurn" | "loginGatewayAccount" | "configureCodexApiKey" | "readNativeAppUpdateStatus" | "checkNativeAppUpdate" | "applyNativeAppUpdate" | "restartNativeApp" | "subscribeEvents"
+  "platformCapabilities" | "beginWindowDrag" | "readState" | "readInitialize" | "readFullDrilldown" | "readContribution" | "readDomainDetailView" | "executeAction" | "readCodexModels" | "readCodexCapabilities" | "readCodexPermissionProfiles" | "listPendingServerRequests" | "respondToServerRequest" | "pickFiles" | "pickDirectory" | "resolveDroppedInputs" | "releaseInputs" | "notifyCompletion" | "listThreadWorkspace" | "readThreadWorkspaceFile" | "readThreadWorkspaceGit" | "readThreadWorkspaceBytes" | "searchThreadWorkspace" | "accessThreadWorkspace" | "setLogDirectory" | "sendMessage" | "steerTurn" | "interruptTurn" | "loginGatewayAccount" | "configureCodexApiKey" | "readNativeAppUpdateStatus" | "checkNativeAppUpdate" | "applyNativeAppUpdate" | "restartNativeApp" | "subscribeEvents"
 > & Partial<CodexThreadAdapterBridge> & {
   eventSourceUrl?: string;
   retryDesktopHost?: () => Promise<{ status: string }>;
@@ -607,6 +611,7 @@ export type OplBridge = CodexThreadAdapterBridge & {
   releaseInputs(cleanupTokens: readonly string[]): Promise<void>;
   notifyCompletion(request: { threadId: string; turnId: string; title: string; body: string }): Promise<void>;
   listThreadWorkspace(request: { threadId: string; relativePath?: string }): Promise<ThreadWorkspaceListing>;
+  readThreadWorkspaceGit(request: { threadId: string }): Promise<ThreadWorkspaceGit>;
   readThreadWorkspaceBytes(request: { threadId: string; relativePath: string; offset?: number; length?: number }): Promise<ThreadWorkspaceBytes>;
   readThreadWorkspaceFile(request: { threadId: string; relativePath: string }): Promise<ThreadWorkspaceFile>;
   accessThreadWorkspace(request: ThreadWorkspaceAccessRequest): Promise<{ accepted: boolean }>;
@@ -676,7 +681,7 @@ export function normalizeCarrierDiagnostics(value: unknown): CarrierDiagnosticsR
       owner,
       carrier,
       status: "available",
-      application: { systemInfo: { logDir } },
+      application: { systemInfo: { logDir, ...(asString(systemInfo?.platform) ? { platform: asString(systemInfo?.platform) } : {}), ...(asString(systemInfo?.arch) ? { arch: asString(systemInfo?.arch) } : {}) } },
       setLogDirectorySupported: record.setLogDirectorySupported === true,
       ...(asString(record.reasonCode) ? { reasonCode: asString(record.reasonCode) } : {})
     };
@@ -1474,6 +1479,10 @@ export function normalizeFullDrilldownReadback(value: unknown): OplFullDrilldown
   };
 }
 
+export function projectedActionStatus(value: unknown): OplActionReceiptStatus | undefined {
+  return ["preview_ready", "confirmation_required", "blocked_read_only", "executed", "no_op", "unsupported", "error", "timed_out"].includes(String(value)) ? value as OplActionReceiptStatus : undefined;
+}
+
 export function normalizeActionReceipt(value: unknown, request: OplActionRequest): OplActionReceipt {
   const fallback = createPlaceholderActionReceipt(request);
   const record = asRecord(value);
@@ -1488,7 +1497,7 @@ export function normalizeActionReceipt(value: unknown, request: OplActionRequest
     canExecute: asBoolean(record.canExecute) ?? fallback.canExecute,
     receiptKind,
     requestedMode: fallback.requestedMode,
-    status: actionReceiptStatus(
+    status: (readback.exitCode === 0 && !readback.timedOut ? projectedActionStatus(record.status) : undefined) ?? actionReceiptStatus(
       receiptKind,
       asBoolean(record.dryRun) ?? fallback.dryRun,
       readback.exitCode,
@@ -1502,7 +1511,7 @@ export function normalizeActionReceipt(value: unknown, request: OplActionRequest
     stderr: readback.stderr,
     timedOut: readback.timedOut,
     payload: request.payload,
-    stdoutJson: parseJsonValue(readback.stdout),
+    stdoutJson: parseJsonValue(readback.stdout) ?? record.stdoutJson,
     stderrJson: parseJsonValue(readback.stderr),
     confirmationId: asString(record.confirmationId) ?? fallback.confirmationId,
     receiptId: asString(record.receiptId) ?? fallback.receiptId,
@@ -1803,6 +1812,10 @@ export function createBrowserBridge(): OplBridge {
       }
       return candidate.listThreadWorkspace(request);
     },
+    readThreadWorkspaceGit(request) {
+      if (!candidate?.readThreadWorkspaceGit) return Promise.reject(new Error("Git preview is unavailable in this host"));
+      return candidate.readThreadWorkspaceGit(request);
+    },
     readThreadWorkspaceBytes(request) {
       if (!candidate?.readThreadWorkspaceBytes) return Promise.reject(new Error("Workspace byte access is unavailable in this host"));
       return candidate.readThreadWorkspaceBytes(request);
@@ -1996,3 +2009,13 @@ function unsupportedLogDirectoryUpdate(): AppLogDirectoryUpdateResult {
     reasonCode: "desktop_host_required"
   };
 }
+
+export type ThreadWorkspaceGit = {
+  threadId: string;
+  status: "available" | "unavailable";
+  reason?: string;
+  branch?: string;
+  files?: { path: string; index: string; workingTree: string; originalPath?: string }[];
+  stagedDiff?: string;
+  unstagedDiff?: string;
+};

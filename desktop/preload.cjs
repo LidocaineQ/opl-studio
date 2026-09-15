@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld("oplStudio", {
   releaseInputs: (cleanupTokens) => invoke("releaseInputs", { cleanupTokens }),
   notifyCompletion: (request) => invoke("notifyCompletion", request),
   listThreadWorkspace: (request) => invoke("listThreadWorkspace", request),
+  readThreadWorkspaceGit: (request) => invoke("readThreadWorkspaceGit", request),
   readThreadWorkspaceBytes: (request) => invoke("readThreadWorkspaceBytes", request),
   readThreadWorkspaceFile: (request) => invoke("readThreadWorkspaceFile", request),
   accessThreadWorkspace: (request) => invoke("accessThreadWorkspace", request),

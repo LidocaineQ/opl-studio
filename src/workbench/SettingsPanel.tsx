@@ -1,3 +1,6 @@
+import { MemoryRefsPanel } from "./MemoryRefsPanel";
+import type { ActionReceiptView } from "./actionReceiptView";
+import { FeatureStatusPanel } from "./FeatureStatusPanel";
 import { FontSizeRow } from "../vendor/deepseek-harness/packages/client/ui-theme/src/client/FontSizeRow";
 import {
   AlertCircle,
@@ -116,6 +119,7 @@ type SettingsPanelProps = {
   activeDestination: SettingsDestinationId;
   onNavigate?: (destination: SettingsDestinationId) => void;
   onRefresh: () => void;
+  readMemory?: () => Promise<import("../bridge/oplBridge").OplFullDrilldownReadback>;
   onRefreshInitialization: () => void;
   setupCapabilities: {
     workspaceRoot: boolean;
@@ -141,6 +145,7 @@ type SettingsPanelProps = {
   };
   actionBusyKey: string | null;
   actionFeedback: SettingsActionFeedback | null;
+  actionReceipt?: ActionReceiptView | null;
   pendingConfirmation: SettingsActionConfirmation | null;
   onConfirmAction: () => void;
   onCancelAction: () => void;
@@ -164,13 +169,16 @@ export type SettingsDockerDiagnostic = {
 export type SettingsActionConfirmation = {
   request: SettingsActionRequest;
   previewStatus: string;
+  preview?: ActionReceiptView;
+  confirmationId?: string;
+  receiptId?: string;
 };
 
 function focusableElements(root: HTMLElement | null): HTMLElement[] {
   if (!root) return [];
   return Array.from(root.querySelectorAll<HTMLElement>(
-    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-  )).filter((element) => !element.closest('[hidden], [aria-hidden="true"]') && element.getClientRects().length > 0);
+    'summary, button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )).filter((element) => !element.closest('[hidden], [aria-hidden="true"]') && element.getClientRects().length > 0 && element.checkVisibility?.() !== false);
 }
 
 function trapDialogFocus(event: KeyboardEvent<HTMLElement>, root: HTMLElement | null): void {
@@ -1012,6 +1020,7 @@ function CapabilityDirectory({
   locale: WorkbenchSettings["locale"];
   showTechnicalDetails: boolean;
   onRefresh: () => void;
+  readMemory?: () => Promise<import("../bridge/oplBridge").OplFullDrilldownReadback>;
 }) {
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLowerCase();
@@ -1145,6 +1154,7 @@ function CodexInstructionsEditor({
   locale: WorkbenchSettings["locale"];
   busyKey: string | null;
   onRefresh: () => void;
+  readMemory?: () => Promise<import("../bridge/oplBridge").OplFullDrilldownReadback>;
   onAction: (request: SettingsActionRequest) => void;
   onAdditionalInstructionsChange: (value: string) => void;
 }) {
@@ -1564,6 +1574,7 @@ export function SettingsPanel({
   activeDestination,
   onNavigate,
   onRefresh,
+  readMemory,
   onRefreshInitialization,
   setupCapabilities,
   onChooseWorkspaceRoot,
@@ -1580,6 +1591,7 @@ export function SettingsPanel({
   manifestInstallAction,
   actionBusyKey,
   actionFeedback,
+  actionReceipt,
   pendingConfirmation,
   onConfirmAction,
   onCancelAction,
@@ -1590,8 +1602,8 @@ export function SettingsPanel({
   const copy = navigationCopy[settings.locale].destinations;
   const [subDestination, setSubDestination] = useState<SettingsDestinationId | null>(null);
   const activeGroup = groups.find((group) => group.destinations.some((destination) => destination.id === activeDestination));
-  const selectedDestination = !onNavigate && activeGroup?.destinations.some((destination) => destination.id === subDestination)
-    ? subDestination!
+  const selectedDestination = !onNavigate && subDestination
+    ? subDestination
     : activeDestination;
   const projection = model.settingsProjection;
   const runtime = model.runtimeOverview;
@@ -2074,6 +2086,14 @@ export function SettingsPanel({
       const webuiStore = projection?.storage.webuiDataVolume;
       return (
         <>
+          <SettingsGroup title={settings.locale === "zh" ? "数据归属" : "Data owners"}>
+            {[
+              ["App data", "OPL App / carrier"], ["Framework state", "OPL Framework"], ["Codex home / sessions", "Codex App Server"],
+              ["Logs / cache", "OPL App / carrier"],
+            ].map(([label, owner]) => <SettingRow key={label} label={label} detail={owner}>
+              <span>{settings.locale === "zh" ? "Owner 未提供可清理目录清单；请在所属服务检查。不在此删除工作区、产物或凭据。" : "Owner has not projected a cleanup inventory. Inspect it in the owner service; workspace, artifacts and credentials are preserved."}</span>
+            </SettingRow>)}
+          </SettingsGroup>
           <div className="settings-page-summary"><span>{settings.locale === "zh" ? "查看工作数据和已安装组件的存储用量" : "Storage used by your work data and installed components"}</span></div>
           <SettingsGroup title={settings.locale === "zh" ? "智能体数据" : "Agent data"}>
             <SettingRow label={settings.locale === "zh" ? "用量统计" : "Usage"} detail={storageReason(agentStore, settings.locale)}>
@@ -2083,7 +2103,7 @@ export function SettingsPanel({
               </span>
             </SettingRow>
             <SettingRow label={settings.locale === "zh" ? "已用空间" : "Used space"}><span>{storageAmount(agentStore?.bytes, agentStore, locale)}</span></SettingRow>
-            {agentStore?.projectedAction?.kind === "navigate" ? <SettingRow label={settings.locale === "zh" ? "管理位置" : "Manage in"}><span>{settings.locale === "zh" ? "智能体" : "Agents"}</span></SettingRow> : null}
+            {agentStore?.projectedAction?.kind === "navigate" ? <SettingRow label={settings.locale === "zh" ? "管理位置" : "Manage in"}><button type="button" onClick={() => onNavigate ? onNavigate("agents") : setSubDestination("agents")}>{settings.locale === "zh" ? "管理智能体与能力数据" : "Manage Agent and capability data"}</button></SettingRow> : null}
             {agentStore?.reclaimableBytes !== undefined ? <SettingRow label={settings.locale === "zh" ? "可清理" : "Reclaimable"}><span>{storageAmount(agentStore.reclaimableBytes, agentStore, locale)}</span></SettingRow> : null}
           </SettingsGroup>
           <SettingsGroup title={settings.locale === "zh" ? "网页端数据" : "Web app data"}>
@@ -2134,6 +2154,7 @@ export function SettingsPanel({
       const defaultAgents = projection?.personalization.oplFlowDefaultUserAgents;
       return (
         <>
+          {readMemory && <MemoryRefsPanel locale={settings.locale} read={readMemory} />}
           <div className="settings-page-summary"><span>{settings.locale === "zh" ? "本机 AGENTS.md 与新会话附加指令" : "Local AGENTS.md and new-conversation instructions"}</span><StatusValue status={readbackStatus} locale={settings.locale} /></div>
           <CodexInstructionsEditor
             userAgents={userAgents}
@@ -2327,6 +2348,11 @@ export function SettingsPanel({
       ?? projection?.statusSummary.releaseChannel;
     return (
       <div data-testid="settings-page-about">
+        <SettingsGroup title={settings.locale === "zh" ? "支持与反馈" : "Support"}>
+          <SettingRow label={settings.locale === "zh" ? "平台 / 架构" : "Platform / architecture"}><span>{carrierDiagnostics.application?.systemInfo.platform ?? "--"} / {carrierDiagnostics.application?.systemInfo.arch ?? "--"}</span></SettingRow>
+          <SettingRow label={settings.locale === "zh" ? "载体" : "Carrier"}><span>{carrierDiagnostics.carrier}</span></SettingRow>
+          <a data-testid="opl-support-link" target="_blank" rel="noreferrer" href={`https://github.com/gaofeng21cn/opl-studio/issues/new?title=${encodeURIComponent("OPL Studio feedback")}&body=${encodeURIComponent(JSON.stringify({ version: appVersion, carrier: carrierDiagnostics.carrier, platform: carrierDiagnostics.application?.systemInfo.platform, arch: carrierDiagnostics.application?.systemInfo.arch, state: stateStatus, update: nativeAppUpdate?.state ?? "unknown" }, null, 2))}`}>{settings.locale === "zh" ? "反馈问题（附脱敏诊断摘要）" : "Report an issue (safe diagnostic summary)"}</a>
+        </SettingsGroup>
         <SettingsGroup title={settings.locale === "zh" ? "One Person Lab 预览版" : "One Person Lab Preview"}>
           <div data-testid="settings-about-primary">
             <SettingRow label={settings.locale === "zh" ? "版本" : "Version"}><span>{appVersion}</span></SettingRow>
@@ -2383,7 +2409,11 @@ export function SettingsPanel({
               <span>{actionFeedback.message}</span>
             </div>
           ) : null}
+          {actionReceipt && feedbackDestinationRef.current === selectedDestination && <details data-testid="opl-settings-receipt"><summary>{settings.locale === "zh" ? "操作回执" : "Action receipt"}</summary><p>{actionReceipt.actionId} · {actionReceipt.status}</p><p>{actionReceipt.receiptId}</p><p>{actionReceipt.summary}</p><p>{actionReceipt.nextStep}</p></details>}
           {renderContent()}
+          <FeatureStatusPanel features={model.features} locale={settings.locale} destination={selectedDestination}
+            onNavigate={destination => onNavigate ? onNavigate(destination) : setSubDestination(destination)}
+            onRefresh={onRefresh} onAction={onAction} busy={actionBusyKey !== null} />
         </div>
       </div>
       {pendingConfirmation ? (
@@ -2414,6 +2444,7 @@ export function SettingsPanel({
                     ? "确认后，本机新会话将默认通过 OPL Gateway 访问模型。账户本身不会被修改。"
                     : "New conversations on this device will use OPL Gateway for model access by default. The account itself will not be changed.")
                 : (settings.locale === "zh" ? "检查已完成。确认后将执行此操作并刷新最新状态。" : "The check is complete. Confirm to run this action and refresh the latest status.")}</p>
+              {pendingConfirmation.preview && <div data-testid="opl-action-preview-detail"><p>{pendingConfirmation.preview.owner}</p><p>{pendingConfirmation.preview.summary}</p><p>{pendingConfirmation.preview.affectedCategories.join(" · ")}</p><p>{pendingConfirmation.preview.nextStep}</p></div>}
               <small>{settings.locale === "zh" ? "预检查" : "Preview"}: {formatStatus(pendingConfirmation.previewStatus, settings.locale)}</small>
             </div>
             <div className="settings-action-dialog-actions">
