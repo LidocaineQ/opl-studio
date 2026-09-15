@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
-OPL_FRAMEWORK_SOURCE_REF=${OPL_FRAMEWORK_SOURCE_REF:-892496cc29f40fe401e8bc9a9d8014502b86139c}
-OPL_INSTALL_BRANCH=${OPL_INSTALL_BRANCH:-892496cc29f40fe401e8bc9a9d8014502b86139c}
+OPL_FRAMEWORK_SOURCE_REF=${OPL_FRAMEWORK_SOURCE_REF:-0cd2325eae4df36c1db882c7a51a19a95661c281}
+OPL_INSTALL_BRANCH=${OPL_INSTALL_BRANCH:-0cd2325eae4df36c1db882c7a51a19a95661c281}
 OPL_INSTALL_SOURCE_MODE=${OPL_INSTALL_SOURCE_MODE:-archive}
-OPL_SOURCE_ARCHIVE_URL=${OPL_SOURCE_ARCHIVE_URL:-https://github.com/gaofeng21cn/one-person-lab/archive/892496cc29f40fe401e8bc9a9d8014502b86139c.tar.gz}
+OPL_SOURCE_ARCHIVE_URL=${OPL_SOURCE_ARCHIVE_URL:-https://github.com/gaofeng21cn/one-person-lab/archive/0cd2325eae4df36c1db882c7a51a19a95661c281.tar.gz}
 export OPL_FRAMEWORK_SOURCE_REF OPL_INSTALL_BRANCH OPL_INSTALL_SOURCE_MODE OPL_SOURCE_ARCHIVE_URL
 
-OPL_INSTALL_SCRIPT_URL=${OPL_INSTALL_SCRIPT_URL:-https://raw.githubusercontent.com/gaofeng21cn/one-person-lab/892496cc29f40fe401e8bc9a9d8014502b86139c/install.sh}
+OPL_INSTALL_SCRIPT_URL=${OPL_INSTALL_SCRIPT_URL:-https://raw.githubusercontent.com/gaofeng21cn/one-person-lab/0cd2325eae4df36c1db882c7a51a19a95661c281/install.sh}
 OPL_LOCAL_APP_PATH=${OPL_LOCAL_APP_PATH:-/Applications/One Person Lab.app}
 OPL_APP_RELEASE_REPO=${OPL_APP_RELEASE_REPO:-gaofeng21cn/one-person-lab-app}
 OPL_APP_DOCS_REF=${OPL_APP_DOCS_REF:-main}
@@ -69,7 +69,6 @@ Options:
   --runtime-form <form>      Select auto, desktop, webui, container-webui, or headless.
   --desktop                 Require the platform Desktop payload.
   --webui                   Prefer the installed Desktop payload in WebUI mode.
-  --native-webui            Deprecated alias for --webui.
   --container-webui         Use the Container WebUI installer.
   --server                  Select the Container WebUI server path.
   --isolated                Select the Container WebUI isolation path.
@@ -203,8 +202,8 @@ while [ "$#" -gt 0 ]; do
       OPL_INSTALL_RUNTIME_FORM=webui
       ;;
     --native-webui)
-      printf '%s\n' '--native-webui is deprecated; using the packaged Desktop WebUI mode.' >&2
-      OPL_INSTALL_RUNTIME_FORM=webui
+      printf 'Unsupported option: %s\n' "$arg" >&2
+      exit 1
       ;;
     --container-webui)
       OPL_INSTALL_RUNTIME_FORM=container-webui
@@ -283,10 +282,6 @@ normalize_runtime_form() {
       printf 'desktop\n'
       ;;
     webui|browser)
-      printf 'webui\n'
-      ;;
-    native|native-webui|native_webui)
-      printf '%s\n' 'native-webui is deprecated; using the packaged Desktop WebUI mode.' >&2
       printf 'webui\n'
       ;;
     container|container-webui|container_webui|docker)

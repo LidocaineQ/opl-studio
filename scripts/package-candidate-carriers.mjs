@@ -146,6 +146,7 @@ function main() {
   if (readJson(path.join(root, "resources", "opl-framework-bootstrap", "manifest.json")).framework_ref !== frameworkRef) {
     throw new Error("candidate Framework bootstrap ref mismatch");
   }
+  assertTrackedSourceClean("after Framework bootstrap materialization; commit the prepared resources before retrying");
 
   const manifestPath = path.resolve(root, contract.manifest_path);
   const standaloneArtifact = "out/standalone-headless-webui.tgz";
@@ -174,6 +175,7 @@ function main() {
   }
 
   assertTrackedSourceClean("after qualification");
+  if (gitOutput(["rev-parse", "HEAD"]) !== sourceCommit) throw new Error("candidate source changed during qualification");
   if (gitOutput(["rev-parse", "HEAD"]) !== sourceCommit) {
     throw new Error("Studio source commit changed during candidate carrier qualification");
   }
