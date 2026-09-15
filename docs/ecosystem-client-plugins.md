@@ -24,3 +24,37 @@ Studio 的通用能力优先复用 DSH 官方及社区插件。OPL 保留 Codex 
 社区检索也确认 [AKS1st/dock-git](https://github.com/AKS1st/dock-git) 提供 Git 历史、差异、暂存、提交、推送和分支功能，采用 MIT。它依赖 `dock-base` 的工作台布局和另一组 Cordis/React peer，目前保留为可选适配候选，尚未集成或完成 Studio 运行验收。Git 不需要由 OPL 从头开发，但包存在与可直接安装是两个不同结论。
 
 验证覆盖 workspace provider 的二进制窗口、跨任务/越界拒绝、取消、响应一致性与符号链接。整页 WebUI 在隔离工作区确认官方文件树、社区 Markdown/CSV、PNG 图片和单页 PDF 实际渲染，PDF canvas 非空；浏览器下载与源文件逐字节一致。设置搜索完成更新、诊断和字号跳转，聊天文本和图片附件完成模拟 turn。独立 Markdown 样本还验证了脚本未执行。这些是本地源码运行证据，不替代安装包或发布验收。
+
+## DSH sandbox reuse boundary
+
+At the pinned `0.1.6-alpha.1` source, `dsh-sandbox` defines subprocess
+confinement and per-call escalation; `dsh-sandbox-local` supplies platform
+backends (macOS Seatbelt, Linux bubblewrap/Landlock, Windows restricted tokens).
+These share the host kernel/filesystem and do not replace a container or VM.
+Backend availability and full/partial enforcement must be reported as facts.
+
+Studio explicitly packages the sandbox and sandbox-policy peer modules needed
+by the DSH cohort. Its Host profile does not mount a sandbox provider or a
+second session policy store. Installing the modules does not confine plugins.
+
+The useful next integration is bounded DSH plugin subprocess/file work. Codex
+execution remains under App Server sandbox/approval ownership, and Framework
+Package/runtime work remains under Framework ownership. An in-process plugin
+can access Node APIs directly; only operations routed through a confined
+executor receive this protection.
+
+Before enabling a provider, bind each MCP tool call to its canonical thread,
+workspace and allowed mode. The current DshToolMcp passes call ID, tool arguments
+and cancellation only; an MCP session ID is not a Codex thread identity. Never
+infer the workspace from the last selected UI thread or use a global writable
+fallback. Resolve escalation through the existing approval owner, scoped to the
+single call; do not load the DSH session-backed policy writer as a second store.
+
+Acceptance should prove read-only denial, workspace write success, outside-path
+and symlink denial, child-process confinement, cancellation, denied escalation,
+and fail-closed unavailable backend behavior. Do not advertise this as active
+sandbox enforcement until those tests run against the actual packaged carrier.
+
+Sources: [sandbox contract](https://github.com/deepseek-ai/deepseek-harness/tree/0a15e36e7f82b6ed45af6fa9759f29b40dcd965d/packages/sandbox/sandbox),
+[local provider](https://github.com/deepseek-ai/deepseek-harness/tree/0a15e36e7f82b6ed45af6fa9759f29b40dcd965d/packages/sandbox/sandbox-local),
+[policy owner](https://github.com/deepseek-ai/deepseek-harness/tree/0a15e36e7f82b6ed45af6fa9759f29b40dcd965d/packages/sandbox/sandbox-policy).

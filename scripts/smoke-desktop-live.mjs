@@ -23,15 +23,9 @@ function findPackagedExecutable() {
   }
   if (!fs.existsSync(outRoot)) return null;
   if (process.platform === "darwin") {
-    for (const entry of fs.readdirSync(outRoot, { recursive: true }).map(String)) {
-      if (entry.endsWith("One Person Lab Preview.app")) {
-        const appPath = path.join(outRoot, entry);
-        return {
-          appPath,
-          executable: path.join(appPath, "Contents", "MacOS", "One Person Lab Preview")
-        };
-      }
-    }
+    const appPath = path.join(outRoot, process.arch === "x64" ? "mac" : `mac-${process.arch}`, "One Person Lab Preview.app");
+    const executable = path.join(appPath, "Contents", "MacOS", "One Person Lab Preview");
+    return fs.existsSync(executable) ? { appPath, executable } : null;
   }
   if (process.platform === "win32") {
     const executable = path.join(outRoot, "win-unpacked", "One Person Lab Preview.exe");

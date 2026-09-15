@@ -146,7 +146,12 @@ explicit user-managed paths; Framework owns managed installation and updates.
 The clean-VM qualification tarball is a test input, not the shipped CLI version.
 
 The Docker/WebUI carrier does include Codex CLI and pins its default npm spec
-in `Dockerfile` and `compose.yaml`. Preview 0.1.12 pins the stable `0.154.0`
+in `Dockerfile` and `compose.yaml`. Preview 0.1.13 pins the stable `0.154.0`
 release; runtime acceptance must read the image binary version as well as
 exercise the App Server protocol. DSH Alpha selection does not change the Codex
 stable channel.
+
+The macOS afterPack hook boots the Host from the actual `app.asar` using the
+packaged Electron binary and an isolated temporary profile with fake owners.
+Missing runtime peers fail the build before signing. Desktop smoke selects the
+current architecture output directly, never a recursively discovered old backup.

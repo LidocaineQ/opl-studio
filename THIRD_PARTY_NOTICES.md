@@ -13,7 +13,7 @@ OPL Studio directly reuses the pinned DeepSeek Harness Application Host cohort:
   `dsh-client-web`,
   `dsh-home-paths`, `dsh-host-frontend-static`,
   `dsh-host-plugin-inventory`, `dsh-host-webserver`, `dsh-invariants`,
-  `dsh-launch-environment`, `dsh-system-prompt`, `dsh-tools`, and
+  `dsh-launch-environment`, `dsh-system-prompt`, `dsh-tools`, `dsh-sandbox`, `dsh-sandbox-policy`, and
   `dsh-typert-protocol`, `dsh-client-store`, `dsh-agent-presets`, and
   `dsh-util-workspace-path`, all at `0.1.6-alpha.1`;
 - `use-sync-external-store` `1.2.0` for the vendored renderer closure;
