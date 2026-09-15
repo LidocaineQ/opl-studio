@@ -130,6 +130,13 @@ failed/older pending generations, real history, native attachments and local upd
 Fixture runs with maintenance disabled do not qualify the maintenance path. Before publishing, test the
 exact committed candidate and its carrier bytes. After publishing, verify only distribution identity,
 signature, anonymous asset availability and update delivery; publication is not a feature-test step.
+The existing App-owned signed-checkpoint qualification invokes
+`macos-distribution.mjs --require-release-trust` before its publish job. That gate now also downloads the
+most recent earlier non-draft Preview, verifies its publisher and version, and exercises a loopback
+Squirrel.Mac update to the unchanged signed candidate bytes. The test uses temporary installation,
+HOME and Electron data, confirms replacement on normal quit, and reads the version after relaunch.
+It needs no local signing credential and does not publish an extra test version. Failure stops the
+publish job; public-feed readback does not repeat this prepublication feature test.
 
 For public macOS builds, `APPLE_KEYCHAIN_PROFILE` selects an existing notarytool credential profile through
 electron-builder. Staple the final DMG, regenerate its feed hash, and run the release qualification against

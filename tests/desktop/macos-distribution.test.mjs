@@ -228,3 +228,14 @@ test("public feed qualification rejects credential-bearing URLs before fetching"
   );
   assert.equal(fetched, false);
 });
+
+test('prepublication update baseline excludes drafts, prereleases and newer or identical releases', async () => {
+  const { selectPreviousUpdaterAsset } = await import('../../scripts/desktop/macos-distribution.mjs');
+  const release = (version, overrides = {}) => ({ tag_name: `v${version}`, assets: [{ name: `one-person-lab-preview-${version}-mac-arm64.zip` }], ...overrides });
+  const chosen = selectPreviousUpdaterAsset([
+    release('0.1.16'), release('0.1.15'), release('0.1.14', { draft: true }),
+    release('0.1.13'), release('0.1.12'), release('0.1.14', { prerelease: true })
+  ], '0.1.15');
+  assert.equal(chosen.version, '0.1.13');
+  assert.equal(selectPreviousUpdaterAsset([release('0.1.15')], '0.1.15'), undefined);
+});

@@ -184,15 +184,17 @@ async function stopApp(running) {
   }
 }
 
-export async function qualifyLocalUpdater() {
+export async function qualifyLocalUpdater({ baseAppPath, targetArtifactsRoot } = {}) {
   invariant(process.platform === "darwin", "local packaged updater qualification requires macOS");
   const pkg = JSON.parse(await readFile(path.join(repositoryRoot, "package.json"), "utf8"));
-  const baseVersion = pkg.version;
-  const targetVersion = nextPatchVersion(baseVersion);
+  invariant(Boolean(baseAppPath) === Boolean(targetArtifactsRoot), "existing updater qualification requires both base App and target artifacts");
+  const baseVersion = baseAppPath ? plistValue(path.join(baseAppPath, "Contents", "Info.plist"), "CFBundleShortVersionString") : pkg.version;
+  const targetVersion = baseAppPath ? pkg.version : nextPatchVersion(baseVersion);
   const runRoot = await mkdtemp(path.join(os.tmpdir(), "opl-desktop-updater-qualification-"));
-  const bundleIdentifier = `cn.onepersonlab.opl.studio.preview.updaterqualification.run${process.pid}`;
+  const bundleIdentifier = baseAppPath ? plistValue(path.join(baseAppPath, "Contents", "Info.plist"), "CFBundleIdentifier")
+    : `cn.onepersonlab.opl.studio.preview.updaterqualification.run${process.pid}`;
   const baseOutput = path.join(runRoot, "base-output");
-  const targetOutput = path.join(runRoot, "target-feed");
+  const targetOutput = targetArtifactsRoot ?? path.join(runRoot, "target-feed");
   const installRoot = path.join(runRoot, "install");
   const installedApp = path.join(installRoot, `${productName}.app`);
   const homeRoot = path.join(runRoot, "home");
@@ -208,11 +210,13 @@ export async function qualifyLocalUpdater() {
     await mkdir(installRoot, { recursive: true });
     await mkdir(homeRoot, { recursive: true });
     await mkdir(electronStateRoot, { recursive: true });
-    await run(process.execPath, [path.join(repositoryRoot, "scripts", "build-desktop.mjs")], "desktop build");
-    await buildApp({ output: baseOutput, version: baseVersion, bundleIdentifier, zip: true });
-    await buildApp({ output: targetOutput, version: targetVersion, bundleIdentifier, zip: true });
+    if (!baseAppPath) {
+      await run(process.execPath, [path.join(repositoryRoot, "scripts", "build-desktop.mjs")], "desktop build");
+      await buildApp({ output: baseOutput, version: baseVersion, bundleIdentifier, zip: true });
+      await buildApp({ output: targetOutput, version: targetVersion, bundleIdentifier, zip: true });
+    }
 
-    const sourceApp = path.join(baseOutput, `mac-${process.arch}`, `${productName}.app`);
+    const sourceApp = baseAppPath ?? path.join(baseOutput, `mac-${process.arch}`, `${productName}.app`);
     invariant((await stat(sourceApp)).isDirectory(), "base App bundle is missing");
     await cp(sourceApp, installedApp, { recursive: true, verbatimSymlinks: true });
     const plist = path.join(installedApp, "Contents", "Info.plist");
@@ -284,18 +288,23 @@ export async function qualifyLocalUpdater() {
         temporaryHome: true,
         temporaryElectronState: true,
         temporaryInstall: true,
-        productionBundleIdentityUsed: false
+        productionBundleIdentityUsed: Boolean(baseAppPath),
+        existingSignedArtifactsUsed: Boolean(baseAppPath)
       }
     };
     await mkdir(path.dirname(receiptPath), { recursive: true });
     await writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
     return receipt;
+  } catch (error) {
+    await writeFile(receiptPath, `${JSON.stringify({ status: "failed", baseVersion, targetVersion,
+      error: error.message, output: running?.readOutput(), messages: running?.messages.slice(-12) }, null, 2)}\n`);
+    throw error;
   } finally {
     await stopApp(relaunched);
     await stopApp(running);
     if (feed) await new Promise((resolve) => feed.server.close(resolve));
     await rm(runRoot, { recursive: true, force: true });
-    await rm(globalShipItCache, { recursive: true, force: true });
+    if (!baseAppPath) await rm(globalShipItCache, { recursive: true, force: true });
   }
 }
 

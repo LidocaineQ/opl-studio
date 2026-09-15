@@ -13,8 +13,43 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
+import semver from "semver";
+import { qualifyLocalUpdater } from "./qualify-local-updater.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+
+export function selectPreviousUpdaterAsset(releases, targetVersion) {
+  return releases.filter((release) => !release.draft && !release.prerelease
+    && semver.valid(release.tag_name?.replace(/^v/, ""))
+    && semver.lt(release.tag_name.replace(/^v/, ""), targetVersion))
+    .sort((a, b) => semver.rcompare(a.tag_name.replace(/^v/, ""), b.tag_name.replace(/^v/, "")))
+    .map((release) => ({ version: release.tag_name.replace(/^v/, ""),
+      asset: release.assets?.find((asset) => /^one-person-lab-preview-.*-mac-arm64\.zip$/.test(asset.name)) }))
+    .find((entry) => entry.asset);
+}
+
+async function qualifyPreviousSignedUpdate({ outRoot, targetVersion, targetSignature, extractionRoot, fetchImpl }) {
+  const response = await fetchImpl("https://api.github.com/repos/gaofeng21cn/opl-studio/releases?per_page=30");
+  invariant(response.ok, `previous Preview release lookup failed: ${response.status}`);
+  const previous = selectPreviousUpdaterAsset(await response.json(), targetVersion);
+  invariant(previous, "no earlier signed Preview updater baseline is available");
+  const archive = await fetchImpl(previous.asset.browser_download_url);
+  invariant(archive.ok, `previous Preview ZIP download failed: ${archive.status}`);
+  const bytes = Buffer.from(await archive.arrayBuffer());
+  invariant(bytes.length === previous.asset.size, "previous Preview ZIP byte count mismatch");
+  if (previous.asset.digest?.startsWith("sha256:")) {
+    invariant(`sha256:${createHash("sha256").update(bytes).digest("hex")}` === previous.asset.digest, "previous Preview ZIP digest mismatch");
+  }
+  const archivePath = path.join(extractionRoot, "previous-preview.zip");
+  await writeFile(archivePath, bytes);
+  const baseAppPath = await extractedUpdaterApp(archivePath, path.join(extractionRoot, "previous"));
+  const signature = signatureDetails(baseAppPath);
+  invariant(signature.valid && signature.authority?.startsWith("Developer ID Application:")
+    && signature.teamIdentifier === targetSignature.teamIdentifier, "previous Preview signature does not match the candidate publisher");
+  invariant(plistValue(path.join(baseAppPath, "Contents", "Info.plist"), "CFBundleShortVersionString") === previous.version,
+    "previous Preview version does not match its release");
+  return qualifyLocalUpdater({ baseAppPath, targetArtifactsRoot: outRoot });
+}
 
 function invariant(condition, message) {
   if (!condition) throw new Error(message);
@@ -276,6 +311,11 @@ export async function qualifyMacDistribution({
 
     const trust = trustResult(appPath, path.join(outRoot, dmg.name));
     const releaseTrustAccepted = trust.gatekeeperAccepted && trust.appStapled && trust.dmgStapled;
+    // The App release executor calls this on sealed signed bytes before publish.
+    // A failed real Squirrel replacement must stop that job, not create a bad release.
+    const prepublicationUpdate = requireReleaseTrust && !requirePublicFeed && releaseTrustAccepted
+      ? await qualifyPreviousSignedUpdate({ outRoot, targetVersion: pkg.version, targetSignature: signature, extractionRoot, fetchImpl })
+      : null;
     let publicFeed = {
       schema: "opl_public_desktop_update_feed_qualification.v1",
       qualified: false,
@@ -305,6 +345,7 @@ export async function qualifyMacDistribution({
     if (!publicFeed.qualified) releaseBlockers.push("public_update_feed_qualification_required");
     const receipt = {
       schema: "opl_macos_desktop_distribution_qualification.v1",
+      prepublicationUpdate,
       carrier: "electron_desktop",
       candidateId: "opl-studio",
       productName,
