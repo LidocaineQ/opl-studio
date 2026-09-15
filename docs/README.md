@@ -12,7 +12,7 @@ below explains one part of that arrangement without becoming another authority.
 | Place a Settings contribution | [Settings projection](settings-information-architecture.md) | Studio rendering of App-owned placement policy |
 | Reuse generic DSH plugins | [Ecosystem clients](ecosystem-client-plugins.md) | Reviewed official/community plugins, source provenance, and canonical workspace adapters |
 | Select verification | [Verification](verification.md) | Commands, prerequisites, and what their results prove |
-| Build and qualify macOS distribution | [Desktop distribution](delivery/desktop-distribution.md) | Desktop bundle, updater, bootstrap, and release qualification |
+| Build and qualify macOS distribution | [Desktop distribution](delivery/desktop-distribution.md) | Desktop bundle, updater, bootstrap, release qualification, and planned Preview/mainline transition |
 | Operate the OCI carrier | [OCI distribution](oci-distribution.md) | Immutable-image lifecycle, authentication, and Cloud handoff |
 | Evaluate remaining adoption work | [Adoption gaps](active/current-state-vs-ideal-gap.md) | Owner decisions and exact evidence still to check |
 | Understand a retired design | [History](history/README.md) | Dated provenance and reasons not to revive old implementation |

@@ -4,6 +4,49 @@
 `cn.onepersonlab.opl.studio.preview`; this evidence does not adopt it as the active release shell or replace the
 installed AionUI-based App.
 
+## Planned mainline transition
+
+The future Studio mainline will use `cn.onepersonlab.opl`, the mainline
+`One Person Lab.app` installation path, and the App-owned mainline update feed.
+The renderer technology does not require a new mainline application identity.
+This is a migration design, not an implemented or qualified migration promise.
+Publishing Preview now does not activate this transition.
+
+| Existing installation | Future update route | Required proof before activation |
+| --- | --- | --- |
+| AionUI mainline (`cn.onepersonlab.opl`) | Existing mainline feed delivers a Studio implementation with the same bundle identity, signing team, installation path, and monotonically increasing mainline updater version | Real old signed installation updates, restarts, and retains history, workspace references, instructions and credentials |
+| Studio Preview (`cn.onepersonlab.opl.studio.preview`) | Preview feed first delivers a signed bridge release; that release installs and starts the verified mainline bundle, then retires Preview only after successful readback | Real Preview update to bridge, identity migration, data preservation, retry and rollback; no direct cross-identity Squirrel assumption |
+
+App owns activation, target identity, feed routing and migration policy; Studio
+implements the carrier adapter. The bridge must verify the exact target version,
+digest, Developer ID team and Apple trust before installation. A version such as
+`0.1.x` from Preview must not reset the mainline version sequence. Until App
+explicitly activates the transition, Preview updates remain on the dedicated
+Preview repository and preserve the Preview bundle identity.
+
+The old Preview feed must remain available for users who skip releases or return
+after a long offline period. It must keep serving a compatible bridge, never
+silently point an unprepared old updater at a different bundle identity. Test
+the oldest supported versions as well as the immediately preceding release;
+inventory updaterless historical builds and disclose any manual prerequisite.
+Do not promise automatic migration for an installation that has no working updater.
+
+If mainline and Preview coexist, detect both installations and active turns;
+wait for a safe idle point, verify the existing mainline version and never
+downgrade or overwrite a running application. Keep migration retryable and retain
+the old app until the new app proves startup and canonical data access. Import
+legacy AionUI history through the existing importer, preserving its source and
+idempotency. Preserve Codex Home and Framework-owned credentials in place; do
+not copy secrets into a renderer store or treat changing a bundle ID as data
+migration. Test Keychain access and signing requirements across the identity change.
+
+Before App activates the transition, qualify both routes in isolated macOS VMs:
+download, signature validation, idle handling, installation, relaunch, history and
+attachment access, failure rollback, repeated migration and subsequent ordinary
+updates. Include co-installed apps, skipped versions, interrupted downloads and
+insufficient disk space. These are future cutover gates; they do not block an
+ordinary same-identity Preview release.
+
 The carrier-specific release surface is declared in `contracts/desktop-release-carrier.json`. OPL App owns the
 shared Electron toolchain, artifact/update policy, signing/notarization stages, publication, and public readback;
 this repository owns only the Studio bundle, builder configuration, renderer payload, and Studio qualification
