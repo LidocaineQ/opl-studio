@@ -1,4 +1,5 @@
-import { createFrameworkChannelCallbackRegistrar } from "./framework-channel-bootstrap.mjs";
+import { createWorkbenchTaskExecutor } from "./workbench-task-executor.mjs";
+import { loadFrameworkCordisProfiles, createFrameworkChannelCallbackRegistrar } from "./framework-channel-bootstrap.mjs";
 import { createCodexApiKeyConfiguration, createGatewayAccountLogin } from "./gateway-account-login.mjs";
 import { createOplPassthrough } from "./opl-passthrough.mjs";
 
@@ -15,6 +16,11 @@ export class OplFrameworkBridge {
   } = {}) {
     const oplCommand = env.OPL_APP_OPL_BIN ?? env.OPL_COMMAND ?? "opl";
     this.codex = codex;
+    this.workbenchBootstrap = async () => {
+      const profiles = await loadFrameworkCordisProfiles({ command: oplCommand, env });
+      if (!profiles.startCordisWorkbenchServicesHost) throw Error('Framework workbench services export is unavailable; update Framework.');
+      return profiles.startCordisWorkbenchServicesHost({ executor: createWorkbenchTaskExecutor(codex.transport), env });
+    };
     this.opl = opl ?? createOplPassthrough({
       cwd: workspaceRoot,
       command: oplCommand,
@@ -39,6 +45,10 @@ export class OplFrameworkBridge {
   }
 
   async start() {
+    if (!this.workbenchRegistration && this.opl.registerWorkbenchServices) {
+      this.workbenchRegistration = this.opl.registerWorkbenchServices(this.workbenchBootstrap);
+      await this.workbenchRegistration;
+    }
     if (
       this.codex?.transport?.initialized === true
       && !this.channelCallbackRegistrationAttempted
@@ -78,7 +88,7 @@ export class OplFrameworkBridge {
   }
 
   async close() {
-    this.closePromise ??= Promise.resolve(this.channelCallbackRegistration?.dispose?.());
+    this.closePromise ??= Promise.allSettled([this.channelCallbackRegistration?.dispose?.(), this.opl.closeWorkbenchServices?.()]);
     return this.closePromise;
   }
 }

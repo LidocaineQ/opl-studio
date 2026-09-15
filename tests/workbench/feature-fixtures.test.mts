@@ -41,3 +41,7 @@ test('typed action statuses preserve unsupported, no-op and owner errors; raw se
 test('memory reads only explicit locator projection, never memory content', () => {
   expect(readMemoryRefs({ drilldown: { ref_family_refs: { memory_refs: { refs: [{ ref: 'memory://item', role: 'consumed_memory_ref', content: 'private body' }] } } } } as never)).toEqual([{ ref: 'memory://item', role: 'consumed_memory_ref' }]);
 });
+
+ test('memory refs unwrap the real operator envelope', () => {
+  expect(readMemoryRefs({ drilldown: { app_operator_drilldown: { ref_family_refs: { memory_refs: { refs: [{ ref: 'memory://real', role: 'consumed_memory_ref' }] } } } } } as never)).toEqual([{ ref: 'memory://real', role: 'consumed_memory_ref' }]);
+});

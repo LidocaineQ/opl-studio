@@ -55,8 +55,8 @@ export function FeatureStatusPanel({ features, locale, destination, onNavigate, 
       {!feature.affectsCodex && <small>{zh ? '此功能的失败不阻塞普通 Codex 对话。' : 'Failure of this feature does not block ordinary Codex conversations.'}</small>}
       {destination !== feature.destination && <p><button type="button" onClick={() => onNavigate(feature.destination)}>{zh ? '打开功能页面' : 'Open feature page'}</button></p>}
       <details><summary>{zh ? '状态来源' : 'State source'}</summary><dl><dt>Owner</dt><dd>{feature.owner}</dd><dt>Source</dt><dd>{feature.sourceRef}</dd><dt>ID</dt><dd>{feature.featureId}</dd></dl></details>
-      {destination !== 'overview' && feature.featureId === 'B0-12' && feature.actions.map(action => <FeatureAction key={action.id} action={action} feature={feature} locale={locale} onAction={onAction} busy={busy} />)}
-      {!feature.actions.length && feature.owner !== 'OPL Studio' && !feature.affectsCodex && <p>{zh ? '当前没有可直接执行的 owner action；刷新后仍不可用时，请在所属服务完成配置。' : 'No executable owner action is projected. Refresh or configure the owner service.'}</p>}
+      {destination !== 'overview' && feature.featureId === 'B0-12' && !feature.sourceRef.startsWith('workbench_services.') && feature.actions.map(action => <FeatureAction key={action.id} action={action} feature={feature} locale={locale} onAction={onAction} busy={busy} />)}
+      {!feature.actions.length && !feature.sourceRef.startsWith('workbench_services.') && feature.owner !== 'OPL Studio' && !feature.affectsCodex && <p>{zh ? '当前没有可直接执行的 owner action；刷新后仍不可用时，请在所属服务完成配置。' : 'No executable owner action is projected. Refresh or configure the owner service.'}</p>}
     </details>)}
   </section>;
 }

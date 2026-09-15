@@ -54,7 +54,9 @@ export function referencedFeatureActions(value: unknown, actions: WorkbenchActio
 
 export function deriveFeatureRefs(state: unknown, actions: WorkbenchActionRef[] = []): WorkbenchFeatureRef[] {
   return featureCatalog.map(([featureId, label, labelEn, destination, authority, sourceRef]) => {
-    const source = featureSource(state, sourceRef);
+    const pluginKey = featureId === 'B0-12' ? 'tasks' : featureId === 'B0-13' ? 'memory' : featureId === 'U1-06' ? 'storage' : undefined;
+    const pluginSource = pluginKey ? featureSource(state, `workbench_services.${pluginKey}`) : undefined;
+    const source = pluginSource ?? featureSource(state, sourceRef);
     const projection = record(source);
     const freshness = record(projection?.freshness);
     const directory = record(projection?.directory);
@@ -62,8 +64,8 @@ export function deriveFeatureRefs(state: unknown, actions: WorkbenchActionRef[] 
     const owner = typeof projection?.owner === 'string' ? projection.owner : authority === 'codex' ? 'opl-codex-native' : authority === 'studio' ? 'OPL Studio' : 'OPL Framework';
     const refs = referencedFeatureActions(source, actions);
     const feature: WorkbenchFeatureRef = {
-      featureId, label, labelEn, destination, owner, sourceRef, actions: refs,
-      state: authority === 'studio' ? 'available' : authority === 'codex' ? 'degraded' : source !== undefined && source !== null ? 'available' : 'owner_action_required',
+      featureId, label, labelEn, destination, owner, sourceRef: pluginSource ? `workbench_services.${pluginKey}` : sourceRef, actions: refs,
+      state: authority === 'studio' ? 'available' : authority === 'codex' ? 'degraded' : ['available', 'ready', 'current', 'connected', 'healthy'].includes(status ?? '') ? 'available' : source !== undefined && source !== null ? 'degraded' : 'owner_action_required',
       summary: authority === 'codex' ? '等待 Codex App Server 状态。' : source === undefined && authority === 'framework' ? 'Owner 尚未投影此功能，不能在此执行。' : '入口已提供；状态以当前 owner 回读为准。',
       nextStep: authority === 'codex' ? '新建或打开任务；连接失败时重试。' : authority === 'studio' ? '打开对应页面。' : '刷新状态；如仍未提供，请在所属 owner 配置此能力。',
       affectsCodex: authority === 'codex',
@@ -75,27 +77,36 @@ export function deriveFeatureRefs(state: unknown, actions: WorkbenchActionRef[] 
     else if (typeof projection?.reason_code === 'string') feature.summary = projection.reason_code;
     if (typeof projection?.next_visible_step === 'string') feature.nextStep = projection.next_visible_step;
     // A running scheduler service alone does not expose task CRUD or history.
-    if (featureId === 'B0-12' && !refs.length && feature.state === 'available') {
+    if (featureId === 'B0-12' && !pluginSource && feature.state === 'available') {
       feature.state = 'owner_action_required';
       feature.summary = '后台服务状态已提供，但 owner 未提供计划任务操作。隐藏窗口后当前 turn 继续；退出 App 后不承诺继续。';
     }
-    if (featureId === 'B0-13' && !projection?.memory_refs) {
+    if (featureId === 'B0-13' && !pluginSource && projection && ['available', 'degraded'].includes(feature.state)) {
+      feature.state = 'degraded';
+      feature.summary = '个性化入口已提供；长期记忆引用需在记忆页面按需读取，空字段不能代表能力缺失。';
+    }
+    if (pluginSource && Array.isArray(projection?.action_refs)) {
+      feature.nextStep = '打开对应页面，读取当前清单并预览操作；执行结果以所属服务回执为准。';
+      feature.summary = typeof projection?.reason === 'string' && projection.reason ? projection.reason : '管理接口已提供；具体文件、任务和操作结果需在页面读取。';
+    }
+    if (pluginSource && feature.state === 'available' && (typeof projection?.read_ref !== 'string' || !Array.isArray(projection?.action_refs) || !projection.action_refs.length)) {
       feature.state = 'owner_action_required';
-      feature.summary = '个性化指令可在此编辑；owner 尚未提供长期记忆引用。';
+      feature.summary = '所属服务尚未提供完整读取和操作引用；请升级 Framework 后刷新。';
     }
     if (featureId === 'U1-03' && projection && projection.schema_version !== 'work-item-projection.v2') {
       feature.state = 'unavailable'; feature.summary = 'Runtime 投影格式不受支持；请刷新或在 owner 更新后重试。';
     }
-    if (featureId === 'U1-06' && projection && !refs.length) feature.state = 'owner_action_required';
+    if (featureId === 'U1-06' && projection && !pluginSource && !refs.length) feature.state = 'owner_action_required';
     return feature;
   });
 }
 
-export function featureRefsWithCodexStatus(features: WorkbenchFeatureRef[], status: 'idle' | 'loading' | 'ready' | 'error', error: string, stateStatus: 'loading' | 'ready' | 'error'): WorkbenchFeatureRef[] {
+export function featureRefsWithCodexStatus(features: WorkbenchFeatureRef[], status: 'idle' | 'loading' | 'ready' | 'error', error: string, stateStatus: 'loading' | 'ready' | 'error', observations: Partial<Record<string, Pick<WorkbenchFeatureRef, 'state' | 'summary'>>> = {}): WorkbenchFeatureRef[] {
   return features.map(feature => feature.affectsCodex ? {
     ...feature,
-    state: status === 'ready' ? 'available' : status === 'error' ? 'unavailable' : 'degraded',
-    summary: status === 'ready' ? 'Codex App Server 已连接。任务、权限和文件由当前 canonical thread 提供。' : error || '正在连接 Codex App Server，可保留草稿后重试。',
+    state: status === 'ready' ? (feature.featureId === 'B0-02' ? 'available' : 'degraded') : status === 'error' ? 'unavailable' : 'degraded',
+    summary: status === 'ready' ? (feature.featureId === 'B0-02' ? '已读取任务目录。打开任务时仍以 canonical thread 回读为准。' : 'App Server 已连接；此项操作尚需当前任务的文件、权限或执行回读确认，不能由连接状态判定。') : error || '正在连接 Codex App Server，可保留草稿后重试。',
+    ...(status === 'ready' ? observations[feature.featureId] : {}),
   } : feature.owner !== 'OPL Studio' && stateStatus !== 'ready' ? {
     ...feature, state: 'degraded', summary: stateStatus === 'error' ? 'Owner 读取失败；当前内容可能是缓存。请刷新重试，普通 Codex 不受影响。' : '正在读取 owner 状态，普通 Codex 不受影响。',
     actions: [],

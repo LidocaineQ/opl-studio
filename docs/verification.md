@@ -358,3 +358,32 @@ provide exact fresh evidence:
 The machine-readable candidate marker requirements and false-ready fields live
 in `src/candidateContractEvidence.json`. This prose explains their meaning; it
 does not replace that validator input.
+
+## Workbench services integration
+
+Run `npm run test:features` for status, memory envelope and action/executor
+regressions. The Framework side also runs
+`node --test tests/src/workbench-resources.test.ts` for corrections, revision
+conflicts, paths, symlinks, exact cleanup previews and protected inventories.
+
+Build the intended Framework checkout first. Start an isolated loopback Temporal
+dev server with a disposable database; do not reuse personal or production
+schedules. Then run:
+
+```bash
+OPL_FRAMEWORK_REPO_ROOT=/path/to/one-person-lab \
+OPL_TEST_TEMPORAL_ADDRESS=127.0.0.1:18233 npm run test:workbench-services
+```
+
+This uses the real public Framework export, real Temporal schedules/workflows,
+and a fake App Server. It covers timed and manual dispatch, CRUD, time zones,
+revision conflict, host restart, retained history and canonical result refs.
+`OPL_WORKBENCH_RENDER=1` keeps an isolated WebUI open for browser interaction;
+its URL and fixture root are written to `/tmp/opl-workbench-ui-context.json`.
+After browser checks, write `ui-complete` inside that fixture root to close it.
+The receipt is `out/acceptance/workbench-services.json`.
+
+Framework's `tests/built/workbench-temporal.test.mjs`, with the same explicit
+`OPL_TEST_TEMPORAL_ADDRESS`, checks overlap and an actual one-minute timeout.
+These are functional integration evidence. Native bundle installation, VM,
+updater, signing, publication and active-shell adoption remain separate gates.

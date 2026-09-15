@@ -971,11 +971,11 @@ function settingsSectionId(destination: SettingsDestinationId): string {
   return `opl-studio-settings-${destination}`;
 }
 
-function SettingsMainSlot({ destination }: { destination: SettingsDestinationId }) {
+function SettingsMainSlot({ destination, close }: { destination: SettingsDestinationId; close?: () => void }) {
   const renderContribution = useContext(SettingsContributionSlotContext);
   const [selected, setSelected] = useState(destination);
   useEffect(() => setSelected(destination), [destination]);
-  return <>{useStudio().renderSettings(selected, renderContribution ?? undefined, setSelected)}</>;
+  return <>{useStudio().renderSettings(selected, renderContribution ?? undefined, setSelected, close)}</>;
 }
 
 function firstRunItemLabel(itemId: string, fallback: string | undefined, locale: "zh" | "en"): string {
@@ -1093,7 +1093,7 @@ export class OplStudioDshSlotHost {
     for (const [order, destination] of settingsDestinations("en").entries()) {
       register(
         { name: "settings.section", id: settingsSectionId(destination.id), order: order * 10, label: destination.label, registrant: "opl-studio" },
-        () => <SettingsMainSlot destination={destination.id} />
+        (props: { close?: () => void }) => <SettingsMainSlot destination={destination.id} close={props.close} />
       );
     }
     register({ name: "main", key: "conversation", registrant: "dsh-ui-conversation", children: { "conversation.session.header": { kind: "single", scope: "root" }, "conversation.session": { kind: "single", scope: "root" }, "conversation.composer.bar": { kind: "single", scope: "root" }, "conversation.input.dock": { kind: "list", scope: "root" }, "conversation.hero.brand.mark": { kind: "single", scope: "root" }, "conversation.hero.workspace": { kind: "single", scope: "root" }, "conversation.hero.agentPreset": { kind: "single", scope: "root" } } }, ConversationSlot);

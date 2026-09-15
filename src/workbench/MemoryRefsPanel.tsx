@@ -3,7 +3,8 @@ import type { OplFullDrilldownReadback } from '../bridge/oplBridge';
 
 const record = (value: unknown): Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 export function readMemoryRefs(readback: OplFullDrilldownReadback): { ref: string; role: string }[] {
-  const root = record(readback.drilldown);
+  const envelope = record(readback.drilldown);
+  const root = record(envelope.app_operator_drilldown ?? envelope);
   const refs = record(record(root.ref_family_refs).memory_refs).refs;
   return Array.isArray(refs) ? refs.flatMap(value => {
     const row = record(value);

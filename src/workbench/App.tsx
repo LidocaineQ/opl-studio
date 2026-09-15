@@ -1387,6 +1387,7 @@ export function App({
       return { tone: "neutral", message: receipt.status === "no_op" ? (settings.locale === "zh" ? "Owner 回读：无需变更。" : "Owner reports no changes needed.") : (settings.locale === "zh" ? "Owner 尚不支持此操作；请刷新或在所属服务处理。" : "This action is unsupported by the owner; refresh or use the owner service.") };
     }
     if (receipt.status === "executed") {
+      if (receipt.payload?.package_id === 'opl-workbench-services' && receipt.payload?.ref === 'workbench#task_run') return { tone: 'success', message: settings.locale === 'zh' ? '运行请求已提交；请在执行历史中查看进度与结果。' : 'Run request submitted. Check history for progress and results.' };
       return {
         tone: "success",
         message: settings.locale === "zh" ? `${label}已完成，状态已刷新。` : `${label} completed and state was refreshed.`
@@ -3039,9 +3040,23 @@ export function App({
     </aside>
   );
 
-  const renderStudioSettings = (activeDestination: SettingsDestinationId, renderContribution?: (options?: { only?: string }) => ReactNode, onNavigate?: (destination: SettingsDestinationId) => void) => (
+  const workbenchOpenThread = useRef(openCanonicalThreadRef);
+  workbenchOpenThread.current = openCanonicalThreadRef;
+  const workbenchServices = useMemo(() => ({
+    read: (operation: string, input: Record<string, unknown> = {}) => bridge.readContribution({ packageId: 'opl-workbench-services', ref: `workbench#${operation}`, input }).then(value => value.result),
+    openThread: (id: string) => workbenchOpenThread.current(id),
+  }), [bridge]);
+
+  const renderStudioSettings = (activeDestination: SettingsDestinationId, renderContribution?: (options?: { only?: string }) => ReactNode, onNavigate?: (destination: SettingsDestinationId) => void, onClose?: () => void) => (
     <SettingsPanel
-      model={{ ...model, features: featureRefsWithCodexStatus(model.features, threadDirectoryStatus, threadDirectoryError, stateStatus) }}
+      model={{ ...model, features: featureRefsWithCodexStatus(model.features, threadDirectoryStatus, threadDirectoryError, stateStatus, {
+        ...(activeTurnId ? { 'B0-03': { state: 'available', summary: '当前 canonical turn 已接受并运行；最终结果尚待回读。' } } : {}),
+        ...(sendState === 'error' ? { 'B0-03': { state: 'unavailable', summary: composerSubmissionError || '最近一次发送失败；草稿已保留，请重试。' } } : {}),
+        ...(composerSubmissionError ? { 'B0-04': { state: 'degraded', summary: composerSubmissionError } } : {}),
+        ...(pendingServerRequestError ? { 'B0-05': { state: 'degraded', summary: pendingServerRequestError } } : pendingServerRequests.length ? { 'B0-05': { state: 'available', summary: '当前任务有待处理的 App Server 确认请求。' } } : {}),
+        ...(threadDetail?.id === codexThreadId && threadDetail ? { 'B0-10': { state: 'available', summary: '当前任务的工作区关系已从 canonical thread 读取。' } } : {}),
+        ...(messages.some(message => message.subagent) ? { 'B0-11': { state: 'available', summary: '当前任务已投影子 Agent 信息；打开结果时再次读取 canonical child thread。' } } : {}),
+      }) }}
       managedUpdate={managedUpdate}
       actionViewModel={settingsActionViewModel}
       settings={settings}
@@ -3066,6 +3081,8 @@ export function App({
       onNavigate={onNavigate}
       onRefresh={() => void loadState(settings.runtimeProfile)}
       readMemory={bridge.readFullDrilldown}
+      workbenchServices={workbenchServices}
+      onClose={onClose}
       onRefreshInitialization={() => { void loadInitialize(); }}
       setupCapabilities={{
         ...setupCapabilities,

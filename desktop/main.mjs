@@ -235,6 +235,8 @@ async function createDesktopHost(appLogDirectory) {
     resourcesPath: process.resourcesPath
   });
   hostEnvironment.OPL_APP_VERSION ??= app.getVersion();
+  hostEnvironment.OPL_STUDIO_LOG_ROOT = app.getPath("logs");
+  hostEnvironment.OPL_STUDIO_DATA_ROOT = app.getPath("userData");
   core = await createOplHostCore({
     workspaceRoot: desktopCodexWorkspaceRoot(),
     env: hostEnvironment,

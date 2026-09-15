@@ -338,3 +338,33 @@ Candidate docs, tests, package artifacts, screenshots, or local live smoke
 cannot perform that transfer or prove release readiness. The current evaluation
 evidence boundaries are maintained in
 [Adoption gaps](./active/current-state-vs-ideal-gap.md).
+
+## Workbench services
+
+`opl-workbench-services` is a Framework Cordis plugin exported through the
+existing `./cordis-profiles` entry. Studio's Framework bridge loads it separately
+from channel providers. A missing export, disconnected Temporal service, or a
+memory/inventory read failure cannot block canonical Codex chat. The fast state
+keeps `workbench_services`; reads use the existing contribution envelope and
+writes use the existing action preview, confirmation, and receipt flow.
+
+Temporal alone holds personal schedule definitions and workflow history. Studio
+supplies bounded create/start/read/interrupt callbacks on its current App Server
+transport. No second App Server, thread store, DSH root Agent, scheduler, memory
+database, or persistent cleanup ledger is created. Worker lifecycle belongs to
+the Framework plugin. Starting the plugin does not install Temporal or invent a
+new namespace. Task execution requires an explicit `:read-only` or `:workspace`
+permission profile and a validated workspace. Definitions carry revisions;
+changes run through one active Temporal management workflow per task and recheck revisions. Stale or concurrent edits fail visibly; Schedule conflict tokens alone are not assumed to provide exclusion.
+
+Memory reads use the active Codex home. Canonical Markdown is read-only;
+corrections are notes for the existing memory owner, not a claim that its memory
+has already changed. Cleanup uses owner-declared inactive log files and an
+expiring exact-file preview. Protected App/Framework/Codex inventory reports
+partial or failed reads explicitly. Resource contents and raw action payloads
+are excluded from diagnostic receipt summaries.
+
+Feature availability requires explicit owner status or a feature-specific
+canonical observation. Projection presence and App Server connection alone are
+insufficient. Empty directories are legitimate states, and missing memory refs
+are not evidence that a memory facility is absent.

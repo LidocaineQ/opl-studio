@@ -1,0 +1,13 @@
+
+.workbench-services form, .workbench-services article { display: grid; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--border, #8884); }
+.workbench-services label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0; }
+.workbench-services label:has(textarea), .workbench-services form > label { flex-direction: column; align-items: stretch; }
+.workbench-services input, .workbench-services select, .workbench-services textarea { max-width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--border, #8886); border-radius: 6px; background: transparent; color: inherit; }
+.workbench-services textarea { width: 100%; resize: vertical; min-height: 72px; }
+.workbench-services button { margin: 3px 8px 3px 0; }
+.workbench-services p, .workbench-services code, .workbench-services label { overflow-wrap: anywhere; }
+.workbench-services ul { max-height: 260px; overflow: auto; padding-inline-start: 18px; }
+.workbench-services fieldset { display: flex; flex-wrap: wrap; gap: 8px; }
+.workbench-services button { height: auto; min-height: 28px; background: var(--dsw-alias-button-tertiary-fill, transparent); color: var(--dsw-alias-label-primary, inherit); }
+.workbench-services li { margin: 6px 0; }
+.workbench-services h3 { margin-block: 12px; }

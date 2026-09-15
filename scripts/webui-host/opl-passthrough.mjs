@@ -648,6 +648,7 @@ function compactFastState(value) {
       codex_personalization: compactCodexPersonalization(appState.codex_personalization),
       ui_contributions: compactUiContributions(appState.ui_contributions),
       transport_bindings: appState.transport_bindings,
+      workbench_services: appState.workbench_services,
       active_project_lines: firstRecords(appState.active_project_lines, 12),
       home_agent_shortcuts: compactHomeShortcutPreferences(appState.home_agent_shortcuts, 16),
       modules: { items: firstRecords(appState.modules?.items, 8) ?? [] },
@@ -879,7 +880,24 @@ export function createOplPassthrough({
     throw Object.assign(new Error("channel callback registrar must be a function"), { code: "invalid_request" });
   }
   let channelProviderHost = null;
+  let workbenchHost = null;
+  let workbenchError = 'Framework workbench services have not initialized.';
   return {
+    async registerWorkbenchServices(bootstrap) {
+      let candidate;
+      try {
+        candidate = await bootstrap();
+        for (const method of ['appStatePatch', 'read', 'execute', 'dispose']) if (typeof candidate?.[method] !== 'function') throw Error('Unsupported workbench host.');
+        if (candidate.appStatePatch()?.workbench_services?.schema_version !== 'opl-workbench-services.v1') throw Error('Unsupported workbench schema.');
+        await workbenchHost?.dispose();
+        workbenchHost = candidate; workbenchError = '';
+      }
+      catch {
+        if (typeof candidate?.dispose === 'function') { try { await candidate.dispose(); } catch {} }
+        workbenchError = 'Framework workbench services are unavailable. Update Framework and restart the App.';
+      }
+    },
+    async closeWorkbenchServices() { await workbenchHost?.dispose(); workbenchHost = null; },
     async runManagedUpdate(operation) {
       if (!["activate", "check", "plan", "apply", "status"].includes(operation)) {
         throw new Error("Unsupported managed update operation");
@@ -935,7 +953,9 @@ export function createOplPassthrough({
       const normalizedProfile = profile === "full" ? "full" : "fast";
       const args = [command, "app", "state", "--profile", normalizedProfile, "--json"];
       const result = await run(command, args.slice(1), { cwd, env, timeoutMs: stateTimeoutMs });
-      const parsed = mergeChannelProviderState(jsonValue(result.stdout), channelProviderHost);
+      const base = mergeChannelProviderState(jsonValue(result.stdout), channelProviderHost);
+      const patch = workbenchHost?.appStatePatch() ?? { workbench_services: { schema_version: 'opl-workbench-services.v1', status: 'owner_action_required', reason: workbenchError } };
+      const parsed = base?.app_state ? { ...base, app_state: { ...base.app_state, ...patch } } : base;
       return {
         profile: normalizedProfile,
         app_state: normalizedProfile === "fast" ? compactFastState(parsed) : parsed,
@@ -981,6 +1001,13 @@ export function createOplPassthrough({
       const ref = typeof request.ref === "string" ? request.ref.trim() : "";
       if (!packageId || !ref) throw Object.assign(new Error("missing packageId or ref"), { code: "invalid_request" });
       const input = request.input && typeof request.input === "object" ? request.input : {};
+      if (packageId === 'opl-workbench-services') {
+        if (!workbenchHost) throw Error(workbenchError);
+        const result = await workbenchHost.read({ package_id: packageId, ref, input });
+        return { command: 'opl-workbench-services', commandArgs: [], exitCode: 0, stdout: '', stderr: '', timedOut: false,
+          stdoutJson: { opl_app_contribution: { surface_kind: 'opl_app_package_contribution.v1', package_id: packageId, ref, operation: 'read',
+            response: { schema_version: 'opl-package-app-contribution-response.v1', ok: true, ref, operation: 'read', result } } } };
+      }
       if (channelAccessEntry(channelProviderHost, packageId, ref, "read")) {
         const stdoutJson = await channelProviderHost.readChannelAccess({
           package_id: packageId,
@@ -1008,6 +1035,23 @@ export function createOplPassthrough({
       const payload = request.payload && typeof request.payload === "object" ? request.payload : {};
       const packageId = typeof payload.package_id === "string" ? payload.package_id.trim() : "";
       const ref = typeof payload.ref === "string" ? payload.ref.trim() : "";
+      if (actionId === 'package_contribution_execute' && packageId === 'opl-workbench-services') {
+        const dryRun = request.dryRun !== false;
+        try {
+          if (!workbenchHost) throw Error(workbenchError);
+          if (!dryRun && (env.OPL_STUDIO_READ_ONLY === '1' || env.OPL_NATIVE_WORKBENCH_READ_ONLY === '1')) throw Error('Workbench actions are disabled in read-only mode.');
+          const value = await workbenchHost.execute({ package_id: packageId, ref, input: payload.input ?? {},
+            dryRun, confirmed: payload.confirmed === true, confirmationId: payload.confirmationId });
+          return { ...hostActionReceipt(request, value), dryRun, status: value.status, receiptKind: dryRun ? 'preview' : 'execute',
+            requestedMode: dryRun ? 'preview' : 'execute', confirmationRequired: dryRun, confirmationId: value.confirmationId,
+            receiptId: value.receiptId, command: 'opl-workbench-services', exitCode: value.status === 'failed' ? 1 : 0,
+            result: value.result };
+        } catch (error) {
+          return { ...hostActionReceipt(request, null), dryRun, status: 'failed', canExecute: false,
+            receiptKind: dryRun ? 'preview' : 'execute', command: 'opl-workbench-services', exitCode: 1,
+            stderr: String(error.message), blockedReason: String(error.message) };
+        }
+      }
       if (
         actionId === "package_contribution_execute"
         && request.dryRun === false

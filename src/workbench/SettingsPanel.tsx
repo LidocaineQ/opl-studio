@@ -1,3 +1,4 @@
+import { ScheduledTasksPanel, MemoryManagerPanel, StorageCleanupPanel, type WorkbenchServicesClient } from "./plugins/WorkbenchServicesPanel";
 import { MemoryRefsPanel } from "./MemoryRefsPanel";
 import type { ActionReceiptView } from "./actionReceiptView";
 import { FeatureStatusPanel } from "./FeatureStatusPanel";
@@ -96,6 +97,8 @@ type SettingsGroupId =
   | "preferences";
 
 type SettingsPanelProps = {
+  workbenchServices?: WorkbenchServicesClient;
+  onClose?: () => void;
   model: WorkbenchModel;
   managedUpdate: ManagedUpdateProjection | null;
   actionViewModel?: SettingsActionViewModel;
@@ -1577,6 +1580,8 @@ export function SettingsPanel({
   onNavigate,
   onRefresh,
   readMemory,
+  workbenchServices,
+  onClose,
   onRefreshInitialization,
   setupCapabilities,
   onChooseWorkspaceRoot,
@@ -2088,14 +2093,8 @@ export function SettingsPanel({
       const webuiStore = projection?.storage.webuiDataVolume;
       return (
         <>
-          <SettingsGroup title={settings.locale === "zh" ? "数据归属" : "Data owners"}>
-            {[
-              ["App data", "OPL App / carrier"], ["Framework state", "OPL Framework"], ["Codex home / sessions", "Codex App Server"],
-              ["Logs / cache", "OPL App / carrier"],
-            ].map(([label, owner]) => <SettingRow key={label} label={label} detail={owner}>
-              <span>{settings.locale === "zh" ? "Owner 未提供可清理目录清单；请在所属服务检查。不在此删除工作区、产物或凭据。" : "Owner has not projected a cleanup inventory. Inspect it in the owner service; workspace, artifacts and credentials are preserved."}</span>
-            </SettingRow>)}
-          </SettingsGroup>
+          {workbenchServices && <StorageCleanupPanel client={workbenchServices} locale={settings.locale} onAction={onAction} busy={actionBusyKey !== null} revision={actionReceipt?.receiptId} />}
+
           <div className="settings-page-summary"><span>{settings.locale === "zh" ? "查看工作数据和已安装组件的存储用量" : "Storage used by your work data and installed components"}</span></div>
           <SettingsGroup title={settings.locale === "zh" ? "智能体数据" : "Agent data"}>
             <SettingRow label={settings.locale === "zh" ? "用量统计" : "Usage"} detail={storageReason(agentStore, settings.locale)}>
@@ -2156,6 +2155,7 @@ export function SettingsPanel({
       const defaultAgents = projection?.personalization.oplFlowDefaultUserAgents;
       return (
         <>
+          {workbenchServices && <MemoryManagerPanel client={workbenchServices} locale={settings.locale} onAction={onAction} busy={actionBusyKey !== null} revision={actionReceipt?.receiptId} />}
           {readMemory && <MemoryRefsPanel locale={settings.locale} read={readMemory} />}
           <div className="settings-page-summary"><span>{settings.locale === "zh" ? "本机 AGENTS.md 与新会话附加指令" : "Local AGENTS.md and new-conversation instructions"}</span><StatusValue status={readbackStatus} locale={settings.locale} /></div>
           <CodexInstructionsEditor
@@ -2184,6 +2184,7 @@ export function SettingsPanel({
       const schedulerAction = runtimeActions.find((action) => action.actionId === (runtime?.temporal.schedulerStatus === "not_installed" ? "provider_scheduler_install" : "provider_scheduler_status"));
       return (
         <>
+          {workbenchServices && <ScheduledTasksPanel onOpened={onClose} client={workbenchServices} locale={settings.locale} onAction={onAction} busy={actionBusyKey !== null} revision={actionReceipt?.receiptId} cwd={projection?.workspace.selectedPath} />}
           <SettingsGroup title={settings.locale === "zh" ? "本机能力" : "Local capabilities"}>
             <SettingRow label={settings.locale === "zh" ? "本机助手" : "Local assistant"} detail={projection?.codex.version ? `${settings.locale === "zh" ? "版本" : "Version"} ${projection.codex.version}` : undefined}><StatusValue status={projection?.codex.installed === true ? projection?.codex.versionStatus ?? "ready" : projection?.codex.installed === false ? "unavailable" : undefined} locale={settings.locale} /></SettingRow>
             <SettingRow label={settings.locale === "zh" ? "智能体与能力" : "Agents and capabilities"}><StatusValue status={projection?.statusSummary.agentPackageHealth} locale={settings.locale} /></SettingRow>
@@ -2464,7 +2465,7 @@ export function SettingsPanel({
                     ? "确认后，本机新会话将默认通过 OPL Gateway 访问模型。账户本身不会被修改。"
                     : "New conversations on this device will use OPL Gateway for model access by default. The account itself will not be changed.")
                 : (settings.locale === "zh" ? "检查已完成。确认后将执行此操作并刷新最新状态。" : "The check is complete. Confirm to run this action and refresh the latest status.")}</p>
-              {pendingConfirmation.preview && <div data-testid="opl-action-preview-detail"><p>{pendingConfirmation.preview.owner}</p><p>{pendingConfirmation.preview.summary}</p><p>{pendingConfirmation.preview.affectedCategories.join(" · ")}</p><p>{pendingConfirmation.preview.nextStep}</p></div>}
+              {pendingConfirmation.preview && <div data-testid="opl-action-preview-detail"><p>{pendingConfirmation.preview.owner}</p><p>{pendingConfirmation.preview.summary}</p><p>{pendingConfirmation.preview.affectedCategories.join(" · ")}</p><p>{pendingConfirmation.preview.nextStep}</p>{pendingConfirmation.preview.affectedFiles?.length ? <ul style={{ maxHeight: 180, overflow: "auto" }}>{pendingConfirmation.preview.affectedFiles.map(file => <li key={file.name}>{file.name} · {file.bytes} bytes</li>)}</ul> : null}</div>}
               <small>{settings.locale === "zh" ? "预检查" : "Preview"}: {formatStatus(pendingConfirmation.previewStatus, settings.locale)}</small>
             </div>
             <div className="settings-action-dialog-actions">

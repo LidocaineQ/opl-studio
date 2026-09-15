@@ -23,7 +23,7 @@ describe('feature ownership and local degradation', () => {
     const state = { settings_control_center: { app_settings_read_model: { opl_gateway_account: { status: 'setup_required' } } } };
     expect(feature(state, 'R1-01').state).toBe('not_configured');
     const rows = featureRefsWithCodexStatus(deriveFeatureRefs(state), 'ready', '', 'error');
-    expect(rows.find(row => row.featureId === 'B0-03')?.state).toBe('available');
+    expect(rows.find(row => row.featureId === 'B0-03')?.state).toBe('degraded');
     expect(rows.find(row => row.featureId === 'R1-01')?.state).toBe('degraded');
   });
   test('scheduler health alone does not imply task operations; unrelated catalog actions are not exposed', () => {
@@ -49,4 +49,17 @@ describe('feature ownership and local degradation', () => {
     expect(messages.find(item => item.id === 'sub')?.subagent?.childThreadIds).toEqual(['child-1']);
     expect(messages.find(item => item.id === 'process')?.text).toBe('process output');
   });
+});
+
+test('presence alone and an empty memory field never prove availability or absence', () => {
+  expect(feature({ codex_personalization: {} }, 'B0-13').state).toBe('degraded');
+  expect(feature({ codex_personalization: { status: 'not_configured' } }, 'B0-13').state).toBe('not_configured');
+  expect(feature({ workbench_services: { tasks: { status: 'available' } } }, 'B0-12').state).toBe('owner_action_required');
+  expect(feature({ settings_control_center: { app_settings_read_model: { opl_gateway_account: {} } } }, 'R1-01').state).toBe('degraded');
+  const features = deriveFeatureRefs({ workbench_services: { tasks: { status: 'not_configured', action_refs: ['workbench#task_create'] }, memory: { status: 'read_error' } } });
+  expect(features.find(row => row.featureId === 'B0-12')?.state).toBe('not_configured');
+  expect(features.find(row => row.featureId === 'B0-13')?.state).toBe('unavailable');
+  const observed = featureRefsWithCodexStatus(features, 'ready', '', 'ready', { 'B0-03': { state: 'unavailable', summary: 'send failed' } });
+  expect(observed.find(row => row.featureId === 'B0-03')?.state).toBe('unavailable');
+  expect(observed.find(row => row.featureId === 'B0-02')?.state).toBe('available');
 });
