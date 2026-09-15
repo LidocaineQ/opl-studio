@@ -373,24 +373,53 @@ function boundedTurnFailure(error, secretValues = []) {
   return { code, message, fields };
 }
 
+/**
+ * Codes that prove the configured provider answered the turn even though no
+ * model generation happened. The App-owned release contract scopes the clean-VM
+ * turn to connectivity, so a structured balance response is a passing outcome
+ * rather than a carrier failure. Generic 403s, auth errors and transport
+ * failures stay failures.
+ */
+const PROVIDER_CONNECTIVITY_CODES = new Set(["INSUFFICIENT_BALANCE"]);
+
+function providerConnectivityCode(failure) {
+  if (!failure) return null;
+  const explicit = typeof failure.code === "string" ? failure.code.trim() : "";
+  if (PROVIDER_CONNECTIVITY_CODES.has(explicit)) return explicit;
+  const structured = typeof failure.message === "string"
+    ? failure.message.match(/"code"\s*:\s*"([A-Z0-9_]{3,64})"/)
+    : null;
+  return structured && PROVIDER_CONNECTIVITY_CODES.has(structured[1]) ? structured[1] : null;
+}
+
 async function runCodexTurnHook({ evaluate, request, secretValues = [] }) {
   if (!request) return { status: "skipped", reason: "turn_hook_not_provided" };
   const result = await evaluate(`(async()=>{const reply=await window.oplStudio.sendMessage(${JSON.stringify(request)}); const turn=Array.isArray(reply?.canonicalThread?.turns)?reply.canonicalThread.turns.find((candidate)=>candidate?.id===reply?.turnId):null; return {threadId:typeof reply?.threadId==="string"?reply.threadId:null,turnId:typeof reply?.turnId==="string"?reply.turnId:null,completed:reply?.completed?.turn?.status||null,finalMessagePresent:typeof reply?.finalMessage==="string"&&reply.finalMessage.length>0,simulated:reply?.simulated===true,error:turn?.error&&typeof turn.error==="object"?turn.error:null};})()`);
-  const passed = Boolean(
+  const generated = Boolean(
     result?.threadId
     && result?.turnId
     && result?.completed === "completed"
     && result?.finalMessagePresent === true
     && result?.simulated !== true
   );
+  const error = boundedTurnFailure(result?.error, secretValues);
+  const reachable = generated ? null : providerConnectivityCode(error);
   return {
-    status: passed ? "passed" : "partial",
+    status: generated ? "passed" : reachable ? "connectivity_confirmed" : "partial",
+    outcome: generated
+      ? "generation_completed"
+      : reachable
+        ? "provider_reachable_without_generation"
+        : "not_proven",
+    connectivity: generated || reachable ? "confirmed" : "not_proven",
+    connectivityCode: reachable ?? null,
+    scope: "connectivity_not_generation",
     threadId: result?.threadId ?? null,
     turnId: result?.turnId ?? null,
     completed: result?.completed ?? null,
     finalMessagePresent: result?.finalMessagePresent === true,
     simulated: result?.simulated === true,
-    error: boundedTurnFailure(result?.error, secretValues)
+    error
   };
 }
 
@@ -471,6 +500,7 @@ export async function runPreviewSmoke({
   const gatewayPassed = checks.gateway?.status === "passed"
     || (!smokeOptions.requireGatewaySetup && checks.gateway?.status === "skipped");
   const turnPassed = checks.codexTurn?.status === "passed"
+    || (smokeOptions.requireCodexTurn && checks.codexTurn?.status === "connectivity_confirmed")
     || (!smokeOptions.requireCodexTurn && checks.codexTurn?.status === "skipped");
   const status = !checks.failure && identityPassed && checks.startup?.status === "passed" && checks.bridge?.status === "passed" && requiredRuntimePassed && uiPassed && gatewayPassed && turnPassed ? "passed" : "partial";
   return {
@@ -492,7 +522,7 @@ export async function runPreviewSmoke({
       ...(!uiPassed ? ["minimum_preview_ui_interaction_not_proven"] : []),
       ...(checks.gateway?.status === "partial" ? ["Gateway_owner_projection_not_read_back_as_clean_setup_state"] : []),
       ...(smokeOptions.requireGatewaySetup && checks.gateway?.status !== "passed" ? ["required_gateway_setup_hook_not_passed"] : []),
-      ...(smokeOptions.requireCodexTurn && checks.codexTurn?.status !== "passed" ? ["required_codex_turn_hook_not_passed"] : [])
+      ...(smokeOptions.requireCodexTurn && !turnPassed ? ["required_codex_turn_hook_not_passed"] : [])
     ]
   };
 }

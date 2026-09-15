@@ -78,6 +78,21 @@ Gateway setup and Codex turn hooks are supplied only through `OPL_STUDIO_GATEWAY
 `OPL_STUDIO_RUNTIME_PROFILES=standard,full` to require both mapped profiles, and use
 `--require-gateway-setup` or `--require-codex-turn` when those hooks are part of the run's acceptance.
 
+The `--require-codex-turn` hook proves **provider connectivity, not model generation**. It accepts two
+outcomes and records which one happened in `checks.codexTurn.status`, `.outcome`, `.connectivity` and
+`.connectivityCode`:
+
+- `passed` / `generation_completed`: the non-simulated turn completed with a final message;
+- `connectivity_confirmed` / `provider_reachable_without_generation`: the non-simulated turn reached the
+  configured provider and returned a structured `INSUFFICIENT_BALANCE` response.
+
+This mirrors the App-owned `codex_turn_policy` in `contracts/app-release-channel.json`, whose release-test
+account is expected to hold no balance: a structured `INSUFFICIENT_BALANCE` response is the evidence that
+the installed Host, credential bridge and provider route all work. Generic 403 authentication or
+authorization errors, transport failures, timeouts, missing turn identities and simulated turns still
+fail the hook. Do not report a `connectivity_confirmed` run as a product or release blocker, and do not
+describe the probe as an end-to-end model generation check.
+
 `npm run qualify:desktop:clean-vm` clones the configured Tart macOS base, installs the exact local DMG,
 launches the packaged App through a temporary SSH/CDP tunnel, and delegates to the same Preview smoke
 harness. `--attach` reuses an already running CDP target for debugging; it does not claim package identity

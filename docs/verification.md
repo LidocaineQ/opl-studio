@@ -50,6 +50,7 @@ is the command owner.
 | `npm run dist:windows` | Unsigned Windows x64 unpacked app, NSIS, and ZIP construction with publishing disabled |
 | `npm run dist:linux` | Unsigned Linux x64 unpacked app and DEB construction with publishing disabled |
 | `npm run qualify:desktop:distribution` | Current-platform native package-set presence and executable-shape checks |
+| `npm run smoke:preview -- --require-codex-turn` | Packaged-identity, Framework readback, Settings/Runtime/inspector UI, Gateway action, and a non-simulated Codex turn proving provider connectivity; a structured `INSUFFICIENT_BALANCE` response passes as `connectivity_confirmed` instead of gating carrier delivery |
 | `npm run qualify:desktop:fixture-vm -- --dmg <DMG>` | Clean Tart VM install of the exact DMG driven by the synthetic App Server/Framework fixtures: feature states, Settings routes, Agent Package readiness, Runtime projection, canonical thread CRUD, workspace containment, attachments and native updater readback |
 | `npm run smoke:desktop-live` | Current-platform packaged executable startup, exact optional version readback, Chromium AX tree, and App Server cleanup smoke |
 | `npm run build:docker` | Local source-candidate OCI image construction only |

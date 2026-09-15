@@ -149,6 +149,100 @@ test("Preview smoke requires a completed non-simulated Codex turn with a final r
   assert.ok(receipt.blockers.includes("required_codex_turn_hook_not_passed"));
 });
 
+function turnProbeEvaluate(turnResult) {
+  return async (expression) => {
+    if (expression.includes("Object.keys(window.oplStudio)")) {
+      return { state: { readback: { exitCode: 0 } }, bridgeKeys: ["readState", "sendMessage"], startupErrors: [] };
+    }
+    if (expression.includes("readState(\"fast\")") || expression.includes("readState(\"full\")")) {
+      return { profile: expression.includes("full") ? "full" : "fast", readback: { exitCode: 0 } };
+    }
+    if (expression.includes("document.querySelector")) {
+      return {
+        root: true,
+        studioRoot: true,
+        sessionHeader: true,
+        composerRunState: true,
+        settings: { opened: true, panel: true, account: true, about: true },
+        runtime: { opened: true, panel: true, returnedToConversation: true },
+        onboarding: { visible: false, dismissed: true },
+        inspector: { opened: true, menuItemSelected: true, tabs: true, closed: true }
+      };
+    }
+    if (expression.includes("window.oplStudio.sendMessage")) return turnResult;
+    return {};
+  };
+}
+
+test("Preview smoke accepts a structured INSUFFICIENT_BALANCE turn as proven provider connectivity", async () => {
+  const receipt = await runPreviewSmoke({
+    identity: { status: "passed", expected: PREVIEW_PRODUCT, actual: PREVIEW_PRODUCT },
+    waitForReady: async () => ({ readyState: "complete", root: true, bridge: true }),
+    evaluate: turnProbeEvaluate({
+      threadId: "thread-balance",
+      turnId: "turn-balance",
+      completed: "failed",
+      finalMessagePresent: false,
+      simulated: false,
+      error: {
+        code: null,
+        message: 'unexpected status 403 Forbidden: {"code":"INSUFFICIENT_BALANCE","message":"Insufficient account balance"}, url: https://gateway.example/v1/responses',
+        additionalDetails: null
+      }
+    }),
+    turnRequest: { prompt: "Only reply OK" },
+    options: { requireCodexTurn: true }
+  });
+  assert.equal(receipt.status, "passed");
+  assert.equal(receipt.hooks.codexTurn, "connectivity_confirmed");
+  assert.equal(receipt.checks.codexTurn.status, "connectivity_confirmed");
+  assert.equal(receipt.checks.codexTurn.connectivity, "confirmed");
+  assert.equal(receipt.checks.codexTurn.connectivityCode, "INSUFFICIENT_BALANCE");
+  assert.equal(receipt.checks.codexTurn.outcome, "provider_reachable_without_generation");
+  assert.equal(receipt.checks.codexTurn.scope, "connectivity_not_generation");
+  assert.equal(receipt.checks.codexTurn.simulated, false);
+  assert.equal(receipt.blockers.includes("required_codex_turn_hook_not_passed"), false);
+});
+
+test("Preview smoke keeps generic 403 and simulated turn outcomes as failures", async () => {
+  const genericForbidden = await runPreviewSmoke({
+    identity: { status: "passed", expected: PREVIEW_PRODUCT, actual: PREVIEW_PRODUCT },
+    waitForReady: async () => ({ readyState: "complete", root: true, bridge: true }),
+    evaluate: turnProbeEvaluate({
+      threadId: "thread-403",
+      turnId: "turn-403",
+      completed: "failed",
+      finalMessagePresent: false,
+      simulated: false,
+      error: { code: "http_403", message: "unexpected status 403 Forbidden: unauthorized" }
+    }),
+    turnRequest: { prompt: "Only reply OK" },
+    options: { requireCodexTurn: true }
+  });
+  assert.equal(genericForbidden.status, "partial");
+  assert.equal(genericForbidden.checks.codexTurn.status, "partial");
+  assert.equal(genericForbidden.checks.codexTurn.connectivity, "not_proven");
+  assert.ok(genericForbidden.blockers.includes("required_codex_turn_hook_not_passed"));
+
+  const simulated = await runPreviewSmoke({
+    identity: { status: "passed", expected: PREVIEW_PRODUCT, actual: PREVIEW_PRODUCT },
+    waitForReady: async () => ({ readyState: "complete", root: true, bridge: true }),
+    evaluate: turnProbeEvaluate({
+      threadId: "thread-simulated",
+      turnId: "turn-simulated",
+      completed: "completed",
+      finalMessagePresent: true,
+      simulated: true,
+      error: null
+    }),
+    turnRequest: { prompt: "Only reply OK" },
+    options: { requireCodexTurn: true }
+  });
+  assert.equal(simulated.status, "partial");
+  assert.equal(simulated.checks.codexTurn.status, "partial");
+  assert.ok(simulated.blockers.includes("required_codex_turn_hook_not_passed"));
+});
+
 test("Preview smoke does not accept the pre-login Gateway projection as authenticated", async () => {
   const evaluate = async (expression) => {
     if (expression.includes("Object.keys(window.oplStudio)")) {
