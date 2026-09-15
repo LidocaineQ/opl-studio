@@ -42,6 +42,7 @@ test("standalone host serves health and readiness from the shared host core", as
     config: { address: "127.0.0.1", port: 0, shutdownTimeoutMs: 500, webRoot: directory },
     createHost: (options) => createWebUiHost({
       ...options,
+      dshHome: path.join(project, "dsh-home"),
       workspaceRoot: project,
       env: {
         ...process.env,

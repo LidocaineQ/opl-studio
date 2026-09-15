@@ -77,7 +77,7 @@ try {
     requestTimeoutMs: 2_000,
     turnTimeoutMs: 2_000
   });
-  host = await createWebUiHost({ transport, opl, webRoot: path.join(repositoryRoot, "dist", "webui") });
+  host = await createWebUiHost({ transport, opl, dshHome: path.join(tempRoot, "dsh-home"), webRoot: path.join(repositoryRoot, "dist", "webui") });
   const baseUrl = host.url;
 
   await cli(["open", baseUrl], cliRoot);
