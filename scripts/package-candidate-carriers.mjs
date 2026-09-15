@@ -133,6 +133,19 @@ function main() {
   if (!/^[0-9a-f]{40}$/.test(sourceCommit)) {
     throw new Error("Studio source commit must be an exact lowercase Git SHA");
   }
+  const evidence = readJson(path.join(root, "src", "candidateContractEvidence.json"));
+  const frameworkRef = process.env.OPL_STANDARD_PAYLOAD_FRAMEWORK_REF
+    ?? evidence.candidate_runtime_qualification?.external_cohort?.framework_commit;
+  if (!/^[0-9a-f]{40}$/.test(frameworkRef ?? "")) throw new Error("candidate Framework ref must be an exact SHA");
+  // Use the release owner's materializer, not a stale ignored resources directory.
+  const prepared = spawnSync(process.execPath, ["--experimental-strip-types",
+    path.join(appRoot, "scripts", "prepare-standard-release-payload.ts"), "studio",
+    "--target-root", root, "--framework-ref", frameworkRef
+  ], { cwd: root, env: process.env, stdio: "inherit" });
+  if (prepared.status !== 0) throw new Error("candidate Framework bootstrap materialization failed");
+  if (readJson(path.join(root, "resources", "opl-framework-bootstrap", "manifest.json")).framework_ref !== frameworkRef) {
+    throw new Error("candidate Framework bootstrap ref mismatch");
+  }
 
   const manifestPath = path.resolve(root, contract.manifest_path);
   const standaloneArtifact = "out/standalone-headless-webui.tgz";
