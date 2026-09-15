@@ -143,6 +143,14 @@ failed/older pending generations, real history, native attachments and local upd
 Fixture runs with maintenance disabled do not qualify the maintenance path. Before publishing, test the
 exact committed candidate and its carrier bytes. After publishing, verify only distribution identity,
 signature, anonymous asset availability and update delivery; publication is not a feature-test step.
+
+For a joint desktop and WebUI/OCI release, follow the publication order owned by
+[OCI distribution](../oci-distribution.md#publication-order): dispatch `studio-webui-preview.yml` from
+Studio `main` with the released version first, wait for that workflow to succeed, and only then create
+the `v<version>` tag that the protected desktop release binds. The WebUI source gate rejects a version
+whose Git release tag already exists, so a desktop release that creates the tag first leaves that
+version without an OCI companion.
+
 The existing App-owned signed-checkpoint qualification invokes
 `macos-distribution.mjs --require-release-trust` before its publish job. That gate now also downloads the
 most recent earlier non-draft Preview, verifies its publisher and version, and exercises a loopback
