@@ -2,7 +2,6 @@ import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import os from "node:os";
 import path from "node:path";
-import readline from "node:readline";
 import { projectCodexThread } from "./thread-adapter.mjs";
 
 export const DEFAULT_PERMISSION_PROFILE = ":danger-full-access";
@@ -342,8 +341,24 @@ export class CodexAppServerTransport extends EventEmitter {
     child.stderr.on("data", (chunk) => {
       this.stderrTail = `${this.stderrTail}${chunk}`.slice(-8_000);
     });
-    const lines = readline.createInterface({ input: child.stdout });
-    lines.on("line", (line) => this.#consumeLine(line));
+    // JSON-RPC stdio is LF-delimited. Node readline also splits at Unicode
+    // U+2028/U+2029, which are legal unescaped characters inside JSON strings.
+    // Decode across byte chunks, then split only on the protocol delimiter.
+    child.stdout.setEncoding("utf8");
+    let buffered = "";
+    child.stdout.on("data", (chunk) => {
+      buffered += chunk;
+      let boundary;
+      while ((boundary = buffered.indexOf("\n")) !== -1) {
+        const line = buffered.slice(0, boundary);
+        buffered = buffered.slice(boundary + 1);
+        this.#consumeLine(line);
+      }
+    });
+    child.stdout.on("end", () => {
+      if (buffered) this.#consumeLine(buffered);
+      buffered = "";
+    });
 
     await this.request("initialize", {
       clientInfo: {

@@ -155,3 +155,11 @@ The macOS afterPack hook boots the Host from the actual `app.asar` using the
 packaged Electron binary and an isolated temporary profile with fake owners.
 Missing runtime peers fail the build before signing. Desktop smoke selects the
 current architecture output directly, never a recursively discovered old backup.
+
+App Server stdio uses LF-delimited JSON frames, decoded across UTF-8 byte chunks.
+Do not use Node `readline` for responses: Unicode line and paragraph separators
+(U+2028/U+2029) are legal inside JSON strings, but newer Node versions split them.
+Real histories containing these characters otherwise produce invalid fragments
+and a misleading `thread/list` timeout. The history transport regression covers
+large responses, Unicode separators, fragmented UTF-8, and CRLF framing without
+truncating or rewriting canonical history.

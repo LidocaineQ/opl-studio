@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
-import test from "node:test";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import test, { after } from "node:test";
 import { CodexAppServerTransport } from "./app-server-transport.mjs";
-import { createWebUiHost } from "./http-host.mjs";
+import { createWebUiHost as createHost } from "./http-host.mjs";
 
 const fixture = new URL("./fixtures/fake-app-server.mjs", import.meta.url).pathname;
+const dshHome = await mkdtemp(path.join(os.tmpdir(), "opl-http-test-dsh-"));
+after(() => rm(dshHome, { recursive: true, force: true }));
+const createWebUiHost = (options) => createHost({ ...options, dshHome });
 
 async function post(baseUrl, route, value) {
   const response = await fetch(`${baseUrl}${route}`, {

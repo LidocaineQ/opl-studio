@@ -3,18 +3,21 @@ import { EventEmitter } from "node:events";
 import os from "node:os";
 import path from "node:path";
 import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
-import test from "node:test";
+import test, { after } from "node:test";
 import { CodexAppServerTransport, threadPermissionOverrides, turnPermissionOverrides } from "./app-server-transport.mjs";
 import { ChannelBindingStore } from "./channel-bindings.mjs";
 import {
   createFrameworkChannelCallbackRegistrar,
   loadFrameworkCordisProfiles
 } from "./framework-channel-bootstrap.mjs";
-import { createOplHostCore, OplHostCore } from "./host-core.mjs";
+import { createOplHostCore as createHostCore, OplHostCore } from "./host-core.mjs";
 import { OplCodexNative } from "./opl-codex-native.mjs";
 import { createOplPassthrough } from "./opl-passthrough.mjs";
 
 const fixture = new URL("./fixtures/fake-app-server.mjs", import.meta.url).pathname;
+const dshHome = await mkdtemp(path.join(os.tmpdir(), "opl-host-test-dsh-"));
+after(() => rm(dshHome, { recursive: true, force: true }));
+const createOplHostCore = (options) => createHostCore({ ...options, dshHome });
 
 test("Host shutdown waits for a manual update and its Codex refresh", async () => {
   const core = new OplHostCore();

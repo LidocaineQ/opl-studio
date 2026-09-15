@@ -2,6 +2,43 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { CodexAppServerTransport } from "./app-server-transport.mjs";
 
+test("stdio preserves Unicode separators and split UTF-8 in large history responses", async () => {
+  const preview = `${"历史🧪".repeat(12_000)}\u2028第二段\u2029第三段\n第四段`;
+  const child = `
+    const readline = require('node:readline');
+    const preview = ${JSON.stringify(preview)};
+    readline.createInterface({ input: process.stdin }).on('line', async line => {
+      const request = JSON.parse(line);
+      if (!request.id) return;
+      if (request.method === 'initialize') {
+        process.stdout.write(JSON.stringify({ id: request.id, result: {} }) + '\\n');
+        return;
+      }
+      const frame = Buffer.from(JSON.stringify({ id: request.id,
+        result: { data: [{ id: 'unicode-history', preview }], nextCursor: null }
+      }) + '\\r\\n');
+      const split = frame.indexOf(Buffer.from('🧪')) + 1;
+      process.stdout.write(frame.subarray(0, split));
+      await new Promise(resolve => setTimeout(resolve, 20));
+      process.stdout.write(frame.subarray(split));
+      process.stdout.write(JSON.stringify({ method: 'fixture/complete', params: {} }) + '\\n');
+    });
+  `;
+  const transport = new CodexAppServerTransport({
+    command: process.execPath, args: ["-e", child], requestTimeoutMs: 2_000
+  });
+  const errors = [];
+  transport.on("protocolError", (error) => errors.push(error.code));
+  try {
+    const response = await transport.listThreads({ limit: 100 });
+    assert.equal(response.data[0].preview, preview);
+    assert.equal(response.nextCursor, null);
+    assert.deepEqual(errors, []);
+  } finally {
+    await transport.stop();
+  }
+});
+
 function transportFixture() {
   const transport = new CodexAppServerTransport();
   const calls = [];
