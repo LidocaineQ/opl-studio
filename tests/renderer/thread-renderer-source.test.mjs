@@ -539,7 +539,7 @@ test("Framework managed updates reuse the projected App action bus", () => {
   assert.match(app, /runSettingsAction\(\{[\s\S]*actionId: projectedAction\.actionId/);
   assert.match(settingsActionFlow, /dryRun: true/);
   assert.match(settingsActionFlow, /payload: \{ \.\.\.request\.payload, confirmed: true \}[\s\S]*dryRun: false/);
-  assert.match(settingsActionFlow, /payload: \{ \.\.\.confirmation\.request\.payload, confirmed: true \}[\s\S]*dryRun: false/);
+  assert.match(settingsActionFlow, /payload: \{ \.\.\.confirmation\.request\.payload, confirmed: true,[^\n]*confirmationId[^\n]*receiptId[^\n]*\}[\s\S]*dryRun: false/);
   assert.match(settingsActionFlow, /captureManagedUpdateReceipt\(receipt\)/);
   assert.match(settingsActionFlow, /await loadState\(settings\.runtimeProfile\)/);
   assert.doesNotMatch(app, /Framework 尚未投影此更新操作|Framework has not projected this update operation/);

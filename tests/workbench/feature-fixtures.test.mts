@@ -14,6 +14,8 @@ test('MAS MAG RCA directory, selection, lifecycle actions and Runtime survive re
   const model = deriveWorkbenchModelFromState(compactFastState({ app_state: featureCompletenessFixture() }));
   expect(model.packageLifecycle.map(item => item.packageId)).toEqual(['med-autoscience', 'med-autogrant', 'redcube-ai']);
   for (const item of model.packageLifecycle) {
+    expect(item.readiness.selectionStatus).toBe('available');
+    expect(item.readiness.selectable).toBe(true);
     const selection = agentPackageSelectionIntent(item);
     expect(selection.packageId).toBe(item.packageId); expect(selection.requiredSkillIds).toHaveLength(1);
     expect(selection.route?.codexVisibleEntry).toBeTruthy();

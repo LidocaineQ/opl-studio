@@ -12,7 +12,12 @@ export function featureCompletenessFixture(workspace = '/fixture/workspace') {
       installed_readiness: { installed: true, physical_status: 'available', callability: 'callable' },
       home_shortcuts: [{ shortcut_id: 'start', label: name, default_visible: true, route: { route_kind: 'agent_package_shortcut', executor: 'codex_cli', codex_visible_entry: skill } }],
       available_actions: [{ action_id: 'agent_package_update', semantic: 'update', payload: { package_id: id }, confirmation_required: true }],
-    })) }, status_index: { packages: {} } },
+    })) }, status_index: { packages: Object.fromEntries(agents.map(([id]) => [id, {
+      package_id: id, status: 'available',
+      presence: { registered: true, installed: true, present: true, callable: true, status: 'present' },
+      capability_exposure: { status: 'visible', codex_visible: true },
+      dependency_readiness: { status: 'ready', required_count: 0, present_count: 0, callable_count: 0, checks: [] },
+    }])) } },
     operator: { workbench: { work_item_projection_v2: {
       schema_version: 'work-item-projection.v2', generated_at: '2026-09-15T00:00:00Z', summary: { work_item_count: 3, agent_count: 3, project_count: 3 },
       agent_catalog: agents.map(([id, name]) => ({ agent_id: id, display_name: name })),
