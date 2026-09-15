@@ -191,12 +191,18 @@ async function createDesktopHost(appLogDirectory) {
       return (await core.transport.runWhenIdle(prepare)).status === "completed";
     }
   });
+  // Recovery updates must remain reachable even if Framework or Host boot fails.
+  desktopUpdater = updater;
   const homeDir = app.getPath("home");
+  let bootstrapStatus = "available";
   const runtime = await ensureStudioDesktopRuntime({
     isPackaged: app.isPackaged,
     resourcesPath: process.resourcesPath,
     homeDir,
     env: process.env
+  }).catch(() => {
+    bootstrapStatus = "framework_bootstrap_failed";
+    return null;
   });
   const activationEnvironment = resolveDesktopRuntimeEnvironment({
     env: runtime?.env ?? process.env,
@@ -204,7 +210,7 @@ async function createDesktopHost(appLogDirectory) {
     resourcesPath: process.resourcesPath
   });
   activationEnvironment.OPL_APP_PROCESS_INSTANCE_ID = appProcessInstanceId;
-  const managedUpdatesEnabled = app.isPackaged && !updaterQualificationEnabled
+  const managedUpdatesEnabled = bootstrapStatus === "available" && app.isPackaged && !updaterQualificationEnabled
     && process.env.OPL_STUDIO_MANAGED_UPDATES !== "0"
     && process.env.OPL_STUDIO_READ_ONLY !== "1" && process.env.OPL_NATIVE_WORKBENCH_READ_ONLY !== "1";
   let activationStatus = "disabled";
@@ -215,8 +221,8 @@ async function createDesktopHost(appLogDirectory) {
       activationStatus = activation.runtime_activation?.status ?? "unknown";
       const binary = activation.runtime_activation?.codex?.runtime_binary_path;
       if (typeof binary === "string" && path.isAbsolute(binary) && fs.existsSync(binary)) activatedCodexPath = binary;
-    } catch {
-      activationStatus = "failed";
+    } catch (error) {
+      activationStatus = error.code ?? "failed";
     }
   }
   const hostEnvironment = resolveDesktopRuntimeEnvironment({
@@ -295,6 +301,8 @@ async function createDesktopHost(appLogDirectory) {
         owner: "one-person-lab-app_desktop_host",
         carrier: "electron_desktop",
         status: "available",
+        frameworkBootstrapStatus: bootstrapStatus,
+        frameworkActivationStatus: activationStatus,
         application: { systemInfo: { logDir: app.getPath("logs"), platform: process.platform, arch: process.arch } },
         setLogDirectorySupported: true
       }),
@@ -358,6 +366,11 @@ app.whenReady().then(async () => {
     if (!trustedRendererUrl(event.senderFrame.url)) {
       throw new Error("Untrusted renderer cannot invoke the OPL host");
     }
+    const updateOperation = {
+      readNativeAppUpdateStatus: "status", checkNativeAppUpdate: "check",
+      applyNativeAppUpdate: "apply", restartNativeApp: "restart"
+    }[request?.method];
+    if (updateOperation && desktopUpdater) return desktopUpdater.perform(updateOperation);
     const retry = request?.method === "retryDesktopHost";
     const activeHost = await desktopHost(appLogDirectory, { retry });
     return retry

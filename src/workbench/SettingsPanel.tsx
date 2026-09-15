@@ -111,6 +111,7 @@ type SettingsPanelProps = {
   initialization: OplInitializeReadback | null;
   nativeAppUpdate: NativeAppUpdateResult | null;
   maintenanceStatus?: string | null;
+  maintenanceError?: string | null;
   dockerDiagnostic: SettingsDockerDiagnostic | null;
   capabilityCatalog: CodexCapabilityCatalog;
   capabilityStatus: "idle" | "loading" | "ready" | "error";
@@ -1566,6 +1567,7 @@ export function SettingsPanel({
   initialization,
   nativeAppUpdate,
   maintenanceStatus,
+  maintenanceError,
   dockerDiagnostic,
   capabilityCatalog,
   capabilityStatus,
@@ -2351,6 +2353,18 @@ export function SettingsPanel({
         <SettingsGroup title={settings.locale === "zh" ? "支持与反馈" : "Support"}>
           <SettingRow label={settings.locale === "zh" ? "平台 / 架构" : "Platform / architecture"}><span>{carrierDiagnostics.application?.systemInfo.platform ?? "--"} / {carrierDiagnostics.application?.systemInfo.arch ?? "--"}</span></SettingRow>
           <SettingRow label={settings.locale === "zh" ? "载体" : "Carrier"}><span>{carrierDiagnostics.carrier}</span></SettingRow>
+          {carrierDiagnostics.frameworkBootstrapStatus && carrierDiagnostics.frameworkBootstrapStatus !== "available" ? (
+            <SettingRow label={settings.locale === "zh" ? "运行环境恢复" : "Runtime recovery"}>
+              <span>{settings.locale === "zh" ? "Framework 初始化失败；可继续使用 Codex，或通过检查 App 更新恢复。" : "Framework initialization failed. Codex remains available; check App updates to recover."}</span>
+              <code>{carrierDiagnostics.frameworkBootstrapStatus}</code>
+            </SettingRow>
+          ) : null}
+          {carrierDiagnostics.frameworkActivationStatus?.startsWith("framework_") ? (
+            <SettingRow label={settings.locale === "zh" ? "运行环境更新" : "Runtime update"}>
+              <span>{settings.locale === "zh" ? "已保留当前环境。待更新版本未通过兼容性检查，请检查 Framework 更新源。" : "The current runtime was preserved. Check the Framework update source for a compatible version."}</span>
+              <code>{carrierDiagnostics.frameworkActivationStatus}</code>
+            </SettingRow>
+          ) : null}
           <a data-testid="opl-support-link" target="_blank" rel="noreferrer" href={`https://github.com/gaofeng21cn/opl-studio/issues/new?title=${encodeURIComponent("OPL Studio feedback")}&body=${encodeURIComponent(JSON.stringify({ version: appVersion, carrier: carrierDiagnostics.carrier, platform: carrierDiagnostics.application?.systemInfo.platform, arch: carrierDiagnostics.application?.systemInfo.arch, state: stateStatus, update: nativeAppUpdate?.state ?? "unknown" }, null, 2))}`}>{settings.locale === "zh" ? "反馈问题（附脱敏诊断摘要）" : "Report an issue (safe diagnostic summary)"}</a>
         </SettingsGroup>
         <SettingsGroup title={settings.locale === "zh" ? "One Person Lab 预览版" : "One Person Lab Preview"}>
@@ -2374,6 +2388,12 @@ export function SettingsPanel({
               completed: settings.locale === "zh" ? "已检查" : "Checked",
               failed: settings.locale === "zh" ? "更新未完成，将重试" : "Update incomplete, retry pending"
             } as Record<string, string>)[maintenanceStatus] ?? maintenanceStatus}</span>
+            {maintenanceError ? <span data-testid="opl-maintenance-error">
+              {maintenanceError === "framework_update_downgrade_blocked"
+                ? (settings.locale === "zh" ? "更新源版本低于当前 Framework，已阻止降级。请检查 Framework 更新源，普通会话不受影响。" : "The update source is older than the installed Framework. Downgrade blocked; check the Framework update source. Conversations remain available.")
+                : (settings.locale === "zh" ? "请在运行与维护中检查更新源或重试。" : "Check the update source or retry in Runtime & Maintenance.")}
+              <code>{maintenanceError}</code>
+            </span> : null}
           </SettingRow> : null}
         </SettingsGroup>
       </div>

@@ -847,6 +847,7 @@ export function App({
   const [managedUpdate, setManagedUpdate] = useState<ManagedUpdateProjection | null>(null);
   const [nativeAppUpdate, setNativeAppUpdate] = useState<NativeAppUpdateResult | null>(null);
   const [maintenanceStatus, setMaintenanceStatus] = useState<string | null>(null);
+  const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
   const [projectedManagedUpdateActions, setProjectedManagedUpdateActions] = useState<ProjectedManagedUpdateAction[]>([]);
   const [projectedSetupActions, setProjectedSetupActions] = useState<ProjectedSetupAction[]>([]);
   const [projectedManifestInstallAction, setProjectedManifestInstallAction] = useState<ProjectedManifestInstallAction>();
@@ -2057,6 +2058,7 @@ export function App({
       setNativeAppUpdate(params as NativeAppUpdateResult);
     }
     if (method === "host/managed-update" && typeof params.status === "string") {
+      setMaintenanceError(typeof params.errorCode === "string" ? params.errorCode : null);
       setMaintenanceStatus(params.status);
       if (params.status === "completed") void loadState(settings.runtimeProfile);
     }
@@ -3054,6 +3056,7 @@ export function App({
       initialization={initializeReadback}
       nativeAppUpdate={nativeAppUpdate}
       maintenanceStatus={maintenanceStatus}
+      maintenanceError={maintenanceError}
       dockerDiagnostic={dockerDiagnostic}
       capabilityCatalog={capabilityCatalog}
       capabilityStatus={capabilityStatus}

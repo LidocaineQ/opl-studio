@@ -277,7 +277,16 @@ function installedFrameworkEnvironment(homeDir, env) {
 }
 
 function installedFrameworkIdentity(homeDir) {
-  return readJsonRecord(path.join(installedFrameworkRoot(homeDir), ".opl-framework-installed-source-identity.json"));
+  const root = installedFrameworkRoot(homeDir);
+  // Framework's updater replaces the install marker with its own source receipt.
+  // Consume that receipt; never recreate an installer-owned identity on its behalf.
+  const source = readJsonRecord(path.join(root, ".opl-framework-source.json"));
+  if (source?.surface_kind === "opl_framework_runtime_source"
+    && source.authority_boundary?.owner === "one-person-lab"
+    && /^[0-9a-f]{40}$/.test(source.source_head_sha ?? "")) {
+    return { framework_sha: source.source_head_sha, ownerUpdated: true };
+  }
+  return readJsonRecord(path.join(root, ".opl-framework-installed-source-identity.json"));
 }
 
 function frameworkAtRef(homeDir, frameworkRef) {
@@ -375,11 +384,11 @@ export async function ensureStudioDesktopRuntime({
   const standard = resolveStandardBootstrap(resourcesPath);
   if (!standard) return null;
   const identity = installedFrameworkIdentity(homeDir);
-  const existingManagedIdentity = identity?.schema === "opl_framework_installed_source_identity.v1"
+  const existingManagedIdentity = (identity?.schema === "opl_framework_installed_source_identity.v1" || identity?.ownerUpdated)
     && /^[0-9a-f]{40}$/.test(identity.framework_sha ?? "")
     && installedFrameworkEnvironment(homeDir, env) !== null;
   const existingManagedRuntime = existingManagedIdentity && (
-    identity.framework_sha === standard.manifest.framework_ref
+    identity.ownerUpdated || identity.framework_sha === standard.manifest.framework_ref
     || fs.existsSync(path.join(installedFrameworkRoot(homeDir), ".git"))
     || fs.lstatSync(installedFrameworkRoot(homeDir)).isSymbolicLink()
     || await supportsRuntimeActivation(installedFrameworkEnvironment(homeDir, env))

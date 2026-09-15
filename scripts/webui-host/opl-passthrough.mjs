@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { frameworkUpdateEnvironment } from "./framework-update-compatibility.mjs";
 
 function boundedTimeout(value, fallback) {
   const normalized = value === undefined || value === "" ? fallback : Number(value);
@@ -887,8 +888,12 @@ export function createOplPassthrough({
         && (env.OPL_STUDIO_READ_ONLY === "1" || env.OPL_NATIVE_WORKBENCH_READ_ONLY === "1")) {
         throw Object.assign(new Error("Managed updates are disabled in read-only mode"), { code: "blocked_read_only" });
       }
+      const updateEnv = ["activate", "apply"].includes(operation)
+        ? await frameworkUpdateEnvironment(env, {
+          operation, plan: operation === "apply" ? await this.runManagedUpdate("plan") : undefined
+        }) : env;
       const result = await run(command, ["update", operation, "--json"], {
-        cwd, env, timeoutMs: operation === "apply" ? 20 * 60_000 : operation === "activate" ? 120_000 : 90_000
+        cwd, env: updateEnv, timeoutMs: operation === "apply" ? 20 * 60_000 : operation === "activate" ? 120_000 : 90_000
       });
       const parsed = jsonValue(result.stdout);
       if (result.exitCode !== 0 || !parsed) {

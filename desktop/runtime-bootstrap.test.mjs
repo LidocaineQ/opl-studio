@@ -152,6 +152,30 @@ test("packaged Standard preserves a newer managed Framework identity across App 
   assert.equal(result.version, "d".repeat(40));
 });
 
+test("owner-updated Framework identity survives repeated cold starts without installer overwrite", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "opl-owner-updated-framework-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const homeDir = path.join(root, "home");
+  const resourcesPath = createStandardBootstrap(root, { installerBody: "#!/bin/bash\nexit 91\n" });
+  const ref = "e".repeat(40);
+  createInstalledFramework(homeDir, ref);
+  const frameworkRoot = path.join(homeDir, ".opl", "one-person-lab");
+  fs.rmSync(path.join(frameworkRoot, ".opl-framework-installed-source-identity.json"));
+  const source = JSON.stringify({ surface_kind: "opl_framework_runtime_source", source_head_sha: ref,
+    authority_boundary: { owner: "one-person-lab" } });
+  fs.writeFileSync(path.join(frameworkRoot, ".opl-framework-source.json"), source);
+  // Older owner generations may not expose update activate; that does not
+  // authorize the App installer to overwrite the existing managed directory.
+  fs.writeFileSync(path.join(homeDir, ".local", "bin", "opl"), "#!/bin/sh\nexit 1\n");
+  for (let launch = 0; launch < 2; launch++) {
+    const result = await ensureStudioDesktopRuntime({ isPackaged: true, resourcesPath, homeDir, env: {} });
+    assert.equal(result.version, ref);
+    assert.equal(result.env.OPL_FRAMEWORK_UPDATE_TARGET_ROOT, frameworkRoot);
+  }
+  assert.equal(fs.readFileSync(path.join(frameworkRoot, ".opl-framework-source.json"), "utf8"), source);
+  assert.equal(fs.existsSync(path.join(frameworkRoot, ".opl-framework-installed-source-identity.json")), false);
+});
+
 test("packaged Standard runs the App-owned installer and requires exact installed identity readback", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "opl-studio-standard-bootstrap-test-"));
   const homeDir = path.join(root, "home");

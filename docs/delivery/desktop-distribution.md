@@ -107,10 +107,29 @@ About page reports maintenance progress or retry state. Failed and busy runs ret
 Before starting its persistent App Server, Preview supplies a fresh `OPL_APP_PROCESS_INSTANCE_ID` and
 calls `opl update activate --json`. Framework owns verification, pending generation activation and rollback.
 Explicit Codex executables remain selected; otherwise the activation receipt selects the managed binary.
-The Standard bootstrap upgrades an older managed installation once if it lacks that public activation
-command, then preserves subsequent managed Framework updates. Explicit external Framework roots are
+The Standard bootstrap recognizes both the installer identity and Framework's
+`opl_framework_runtime_source` receipt after an owner update. Missing activation support does not
+authorize overwriting an owner-updated directory. Explicit external Framework roots are
 preserved. External Temporal servers and developer or user-managed Packages remain with their owners.
 `OPL_STUDIO_MANAGED_UPDATES=0` disables component maintenance, and explicit read-only mode blocks it.
+
+Automatic apply reads the Framework plan and the installed package version before dispatch. A channel
+older than the installed Framework, an unverified version, or an unbound target stops automatic apply
+with a specific reason; accepted channel artifacts are bound by digest through Framework's existing
+`OPL_FRAMEWORK_ARTIFACT_REF`. Cold-start activation also checks the owner-projected pending root version
+before calling the owner. Studio never rewrites pending generations or their receipts. The ordinary
+`opl update apply --json` is already Framework's background route; it must not be replaced with a
+component-specific immediate apply or an invented `--background` flag.
+
+Framework bootstrap failure degrades its capabilities without preventing the Codex Host from starting.
+Native App update IPC is available independently of Host initialization, so recovery updates remain
+reachable after a Host failure. About exposes bootstrap and activation diagnostics.
+
+Preview publication follows candidate acceptance, including enabled maintenance, repeated cold starts,
+failed/older pending generations, real history, native attachments and local updater qualification.
+Fixture runs with maintenance disabled do not qualify the maintenance path. Before publishing, test the
+exact committed candidate and its carrier bytes. After publishing, verify only distribution identity,
+signature, anonymous asset availability and update delivery; publication is not a feature-test step.
 
 For public macOS builds, `APPLE_KEYCHAIN_PROFILE` selects an existing notarytool credential profile through
 electron-builder. Staple the final DMG, regenerate its feed hash, and run the release qualification against

@@ -189,6 +189,8 @@ export type CarrierDiagnosticsReadback = {
   };
   setLogDirectorySupported: boolean;
   reasonCode?: string;
+  frameworkBootstrapStatus?: string;
+  frameworkActivationStatus?: string;
 };
 
 export type AppLogDirectoryUpdateResult = {
@@ -683,6 +685,8 @@ export function normalizeCarrierDiagnostics(value: unknown): CarrierDiagnosticsR
       status: "available",
       application: { systemInfo: { logDir, ...(asString(systemInfo?.platform) ? { platform: asString(systemInfo?.platform) } : {}), ...(asString(systemInfo?.arch) ? { arch: asString(systemInfo?.arch) } : {}) } },
       setLogDirectorySupported: record.setLogDirectorySupported === true,
+      frameworkBootstrapStatus: asString(record.frameworkBootstrapStatus),
+      frameworkActivationStatus: asString(record.frameworkActivationStatus),
       ...(asString(record.reasonCode) ? { reasonCode: asString(record.reasonCode) } : {})
     };
   }
