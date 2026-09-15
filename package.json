@@ -1,6 +1,6 @@
 {
   "name": "opl-studio",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "private": true,
   "type": "module",
   "description": "First-party DeepSeek Harness/Cordis Application Host for One Person Lab App across desktop and headless carriers.",
@@ -85,7 +85,9 @@
     "shiki": "4.3.1",
     "streamdown": "^2.5.0",
     "use-sync-external-store": "1.2.0",
-    "zustand": "4.4.7"
+    "zustand": "4.4.7",
+    "@deepseek-ai/dsh-sandbox": "0.1.6-alpha.1",
+    "@deepseek-ai/dsh-sandbox-policy": "0.1.6-alpha.1"
   },
   "devDependencies": {
     "@types/node": "22.15.3",
