@@ -91,6 +91,9 @@ test("DSH profile tools are authenticated, callable, and dynamically announced o
   const changedPromise = new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("tool list notification was not received")), 2_000);
     changed = (error, tools) => {
+      // Image registration also emits a notification. Wait for the later
+      // registration instead of depending on both events being coalesced.
+      if (!error && !tools?.some((tool) => tool.name === "late_tool")) return;
       clearTimeout(timeout);
       if (error) reject(error);
       else resolve(tools);
