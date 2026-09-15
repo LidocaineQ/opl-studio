@@ -600,7 +600,7 @@ test("search, composer attachments, and Agent permissions route to real renderer
   assert.match(slotHost, /工作区访问/);
   assert.match(slotHost, /只读/);
   assert.match(slotHost, /command\(`\/permission \$\{next\}`\)/);
-  assert.match(slotHost, /key === "conversation\.input\.plan"/);
+  assert.match(slotHost, /key === "conversation\.input\.permission"/);
   assert.match(slotHost, /<StudioPermissionSelect/);
   assert.match(slotHost, /function EmptyAttachmentSlot\(\) \{ return null; \}/);
   assert.match(slotHost, /addFiles=\{studio\.addComposerImages\}/);
@@ -719,7 +719,7 @@ test("DSH controls resolve to the complete pinned source cohort and OPL-owned sl
     [contributionComponents, ["Button", "Pill", "StateDot", "Tooltip"]]
   ]) {
     assert.match(source, /from "@deepseek-ai\/dsh-client-ui-primitives"/);
-    for (const primitive of primitives) assert.match(primitiveIndex, new RegExp(`export \\{ ${primitive} \\}`));
+    for (const primitive of primitives) assert.match(primitiveIndex, new RegExp(`export\\s*\\{[^}]*\\b${primitive}\\b[^}]*\\}`));
   }
 
   assert.match(scopedSlots, /export function createSlotRenderer/);

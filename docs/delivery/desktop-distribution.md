@@ -136,3 +136,17 @@ same release with `scripts/studio-full-release-adapter.ts`, preserving all
 sealed Standard assets and update metadata. For a combined OCI release, follow
 the [publication order](../oci-distribution.md#publication-order) before creating
 the desktop release tag.
+
+## Codex CLI version ownership
+
+The macOS Standard and Full App bundles do not embed a second Codex CLI.
+`opl-codex-native` starts the exact external or Framework-managed executable
+selected through `OPL_CODEX_BIN` and the existing desktop resolver. Respect
+explicit user-managed paths; Framework owns managed installation and updates.
+The clean-VM qualification tarball is a test input, not the shipped CLI version.
+
+The Docker/WebUI carrier does include Codex CLI and pins its default npm spec
+in `Dockerfile` and `compose.yaml`. Preview 0.1.12 pins the stable `0.154.0`
+release; runtime acceptance must read the image binary version as well as
+exercise the App Server protocol. DSH Alpha selection does not change the Codex
+stable channel.

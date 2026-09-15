@@ -15,7 +15,7 @@ OPL Studio directly reuses the pinned DeepSeek Harness Application Host cohort:
   `dsh-host-plugin-inventory`, `dsh-host-webserver`, `dsh-invariants`,
   `dsh-launch-environment`, `dsh-system-prompt`, `dsh-tools`, and
   `dsh-typert-protocol`, `dsh-client-store`, `dsh-agent-presets`, and
-  `dsh-util-workspace-path`, all at `0.1.5-rc.1`;
+  `dsh-util-workspace-path`, all at `0.1.6-alpha.1`;
 - `use-sync-external-store` `1.2.0` for the vendored renderer closure;
 - `zustand` `4.4.7` and `immer` `10.2.0` for the DSH client store runtime
   closure (MIT, pmndrs and Michel Weststrate);
@@ -28,7 +28,7 @@ Application Host package cohort is repeated in
 
 Source repository: <https://github.com/deepseek-ai/deepseek-harness>
 
-Inspected source ref: `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`
+Inspected source ref: `0a15e36e7f82b6ed45af6fa9759f29b40dcd965d`
 
 The complete `src/` trees of eighteen client packages are vendored byte-for-byte
 from that ref under `src/vendor/deepseek-harness/packages/client/`:
@@ -55,8 +55,8 @@ from that ref under `src/vendor/deepseek-harness/packages/client/`:
 The upstream `packages/util/workspace-path/src` helpers are also vendored from
 the same ref so renderer imports resolve to the pinned source helpers.
 
-The snapshot contains 394 files, including the upstream `LICENSE`. Its package
-roots, per-file SHA-256 inventory, source package version (`0.1.5-rc.1`), and
+The snapshot contains 404 files, including the upstream `LICENSE`. Its package
+roots, per-file SHA-256 inventory, source package version (`0.1.6-alpha.1`), and
 update boundary are recorded in
 `src/composition/deepseekHarnessSourceManifest.json`; `npm run verify:dsh-gui`
 checks local byte parity. OPL changes stay outside the vendor root.
@@ -149,3 +149,40 @@ search version does not introduce an AI provider or credential store.
 Source and installation instructions remain available in that upstream repository.
 The notices and corresponding source availability must accompany distribution;
 these plugins' licenses are not replaced by Studio's MIT license.
+
+## jsdiff
+
+The upstream DiffBlock uses `diff` `9.0.0` for read-only diff rendering.
+Source: <https://github.com/kpdecker/jsdiff>.
+
+```text
+BSD 3-Clause License
+
+Copyright (c) 2009-2015, Kevin Decker <kpdecker@gmail.com>
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```

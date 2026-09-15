@@ -547,7 +547,7 @@ function assertDeepSeekHarnessReuse(evidence, rendererSource) {
     [contributionComponents, ["Button", "Pill", "StateDot", "Tooltip"]]
   ]) {
     assert(source.includes('from "@deepseek-ai/dsh-client-ui-primitives"'), "OPL primitive consumers must import the upstream DSH package specifier directly");
-    for (const name of names) assert(primitiveIndex.includes(`export { ${name} }`), `vendored DSH primitive index must export ${name}`);
+    for (const name of names) assert(new RegExp(`export\\s*\\{[^}]*\\b${name}\\b[^}]*\\}`).test(primitiveIndex), `vendored DSH primitive index must export ${name}`);
   }
   assert(!mainSource.includes("--opl-brand-logo") && !mainSource.includes("branding/opl-app-logo.png"), "renderer must keep OPL identity text-only without a Logo asset");
   assert(notices.includes(expectedDshRef) && notices.includes(expectedDshVersion) && notices.includes("use-sync-external-store") && notices.includes("MIT License"), "third-party notices must preserve the pinned DSH source and runtime licenses");

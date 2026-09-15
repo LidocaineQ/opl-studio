@@ -61,6 +61,7 @@ declare module "@deepseek-ai/dsh-client-ui-slots" {
     "conversation.input.left": { kind: "list"; scope: "root"; owner: object };
     "conversation.input.right": { kind: "list"; scope: "root"; owner: object };
     "conversation.input.plan": { kind: "single"; scope: "root"; owner: object };
+    "conversation.input.permission": { kind: "single"; scope: "root"; owner: object };
     "conversation.input.model": { kind: "single"; scope: "root"; owner: object };
     "conversation.input.dock": { kind: "list"; scope: "root"; owner: object };
     "conversation.composer.dock": { kind: "list"; scope: "root"; owner: object };
@@ -740,7 +741,7 @@ function InputBarSlot({ renderSlot, ...owner }: Record<string, any>) {
     pasteBegin: (text: string, selection: { start: number; end: number }) => studio.updatePrompt(`${studio.prompt.slice(0, selection.start)}${text}${studio.prompt.slice(selection.end)}`),
     invalidatePaste: () => undefined, track: () => undefined, arbitrate: () => "pass", space: () => false, dismissPopup: () => undefined
   };
-  const inputRenderSlot = (key: string, props: Record<string, unknown>) => key === "conversation.input.plan"
+  const inputRenderSlot = (key: string, props: Record<string, unknown>) => key === "conversation.input.permission"
     ? <StudioPermissionSelect value={permissionValue} options={permissionOptions} locked={studio.sending} locale={studio.locale} command={command} />
     : renderSlot(key, props);
   return <InputBar {...owner} sessionId="opl-current" useSession={(selector: any) => selector({ promptError: null, running: studio.sending, subagent: null, removed: false })} useInput={(selector: any) => selector(input)} inputActions={{ setDraft: studio.updatePrompt, addAttachments: () => true, removeAttachment: studio.removeComposerImage, pruneAttachments: () => undefined, submit: studio.submitPrompt }} keyboard={keyboard} addFiles={studio.addComposerImages} removeAttachment={studio.removeComposerImage} resolveDraftAttachments={(ids: readonly string[]) => ids.flatMap((id) => { const image = studio.composerImages.find((candidate) => candidate.id === id); return image ? [{ kind: "image", ...image }] : []; })} useBusyEnter={useStudioBusyEnter} toggleCommandMenu={studio.openComposerPalette} stop={studio.stopTurn} t={(key: string, params?: Record<string, unknown>) => translate(studio.locale, key, params)} renderSlot={inputRenderSlot} useFileUploads={(selector: any) => selector({})} useNotices={(selector: any) => selector(null)} useLexicon={(selector: any) => selector(new Map())} useMenuLauncher={(selector: any) => selector(undefined)} useProjection={(_key: string, selector?: (value: undefined) => unknown) => selector ? selector(undefined) : undefined} accessory={studio.composerAccessory} />;
@@ -1099,7 +1100,7 @@ export class OplStudioDshSlotHost {
     register({ name: "conversation.hero.brand.mark", registrant: "opl-studio" }, OplBrandMarkSlot);
     register({ name: "conversation.session.header", registrant: "opl-studio" }, ConversationHeaderSlot);
     register({ name: "conversation.session", registrant: "opl-studio" }, ConversationBodySlot);
-    register({ name: "conversation.composer.bar", registrant: "dsh-ui-conversation", children: { "conversation.input.attachments": { kind: "single", scope: "root" }, "conversation.input.plan": { kind: "single", scope: "root" }, "conversation.input.model": { kind: "single", scope: "root" }, "conversation.input.overlay": { kind: "single", scope: "root" }, "conversation.input.left": { kind: "list", scope: "root" }, "conversation.input.right": { kind: "list", scope: "root" }, "conversation.composer.dock": { kind: "list", scope: "root" } } }, InputBarSlot);
+    register({ name: "conversation.composer.bar", registrant: "dsh-ui-conversation", children: { "conversation.input.attachments": { kind: "single", scope: "root" }, "conversation.input.permission": { kind: "single", scope: "root" }, "conversation.input.plan": { kind: "single", scope: "root" }, "conversation.input.model": { kind: "single", scope: "root" }, "conversation.input.overlay": { kind: "single", scope: "root" }, "conversation.input.left": { kind: "list", scope: "root" }, "conversation.input.right": { kind: "list", scope: "root" }, "conversation.composer.dock": { kind: "list", scope: "root" } } }, InputBarSlot);
     register({ name: "conversation.input.attachments", registrant: "opl-studio" }, EmptyAttachmentSlot);
     register({ name: "conversation.input.overlay", registrant: "opl-studio" }, ComposerOverlaySlot);
     register({ name: "conversation.input.model", registrant: "opl-studio" }, ComposerModelSlot);

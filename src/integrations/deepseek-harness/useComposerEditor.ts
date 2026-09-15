@@ -8,6 +8,7 @@ const projectionTag = "opl-prompt-projection";
 
 export function useComposerEditor(prompt: string, updatePrompt: (text: string) => void, threadId: string | null | undefined) {
   const updateRef = useRef(updatePrompt);
+  const filePickerRef = useRef<{ available(): boolean; open(): void } | null>(null);
   updateRef.current = updatePrompt;
   const [editor] = useState(() => createEditor({
     namespace: "opl-studio-composer",
@@ -40,6 +41,12 @@ export function useComposerEditor(prompt: string, updatePrompt: (text: string) =
 
   return {
     editor,
+    bindFilePicker: (picker: { available(): boolean; open(): void }) => {
+      filePickerRef.current = picker;
+      return () => {
+        if (filePickerRef.current === picker) filePickerRef.current = null;
+      };
+    },
     paste: (text: string) => editor.update(() => {
       const selection = $getSelection();
       if ($isRangeSelection(selection)) selection.insertRawText(text);
