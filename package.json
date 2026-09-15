@@ -159,6 +159,7 @@
     "qualify:desktop:mac:release": "node scripts/desktop/macos-distribution.mjs --require-release-trust --require-public-feed",
     "qualify:desktop:updater:local": "node scripts/desktop/qualify-local-updater.mjs",
     "qualify:desktop:clean-vm": "node scripts/desktop/qualify-clean-vm.mjs",
+    "qualify:desktop:fixture-vm": "node scripts/desktop/qualify-fixture-vm.mjs",
     "diagnose:gateway:persistence": "node scripts/desktop/diagnose-gateway-credential-persistence.mjs",
     "smoke:webui": "node scripts/smoke-webui.mjs",
     "smoke:visual": "node scripts/smoke-visual.mjs",
@@ -166,7 +167,7 @@
     "smoke:docker:lifecycle": "node tests/headless/docker-lifecycle-smoke.mjs",
     "test": "npm run test:source",
     "test:full": "npm run test:source && npm run validate:state-model && npm run smoke:webui && npm run smoke:visual && npm run package && npm run validate:package",
-    "test:features": "bun test tests/workbench/feature-status.test.mts tests/workbench/feature-fixtures.test.mts && node --test scripts/webui-host/workspace-git.test.mjs && node --test scripts/webui-host/workbench-task-executor.test.mjs",
+    "test:features": "bun test tests/workbench/feature-status.test.mts tests/workbench/feature-fixtures.test.mts tests/workbench/studio-vm-fixture.test.mts && node --test scripts/webui-host/workspace-git.test.mjs && node --test scripts/webui-host/workbench-task-executor.test.mjs",
     "test:workbench-services": "node scripts/acceptance/workbench-services.mjs"
   }
 }

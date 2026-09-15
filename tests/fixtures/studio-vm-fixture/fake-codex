@@ -1,0 +1,2 @@
+#!/bin/sh
+ELECTRON_RUN_AS_NODE=1 exec "/Applications/One Person Lab Preview.app/Contents/MacOS/One Person Lab Preview" /tmp/opl-feature-fixtures/fake-app-server.mjs

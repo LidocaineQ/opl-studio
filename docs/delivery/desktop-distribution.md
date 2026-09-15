@@ -86,6 +86,19 @@ unless `--app-path` allows a real `Info.plist` readback. Its receipt always keep
 runtime is recorded as a typed blocker instead of being hidden behind a shell fallback. The harness deletes
 the temporary VM by default; use `--keep-vm` only for local debugging.
 
+`npm run qualify:desktop:fixture-vm -- --dmg <local DMG>` installs the same exact DMG into the clean Tart
+base and drives the packaged Host with the synthetic App Server and Framework fixtures in
+`tests/fixtures/studio-vm-fixture`. The installed bundle, native preload bridge, Host, renderer and slots
+stay real; only the Codex App Server and the Framework state readback are replaced, so no model call, real
+Package or real workspace is touched. It asserts the 27 explicit feature states, all eight Settings routes,
+the three Agent Packages reaching `3 / 3 可用`, the Runtime producer projection, canonical thread CRUD and
+readback, workspace list/read/search containment, the unavailable-Git reason, permission profiles and
+models, rendered thread selection with the subagent panel, a completed fixture turn, attachment
+classification plus cleanup, the native updater version and a clean renderer exception log. The receipt is
+`out/feature-vm-ui.json`. This proves the packaged candidate's feature surfaces; it is not App release
+admission, real Codex execution, or a substitute for the App-owned clean-VM qualification of published
+assets.
+
 `npm run diagnose:gateway:persistence` checks the Framework-owned
 `credentials.json`, `account.json`, and `installation.json` files without printing their contents, then
 performs a real Preview cold start and compares mode, size, and SHA-256 before/after. It also compares the

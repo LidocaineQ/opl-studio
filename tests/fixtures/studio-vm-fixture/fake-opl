@@ -1,0 +1,6 @@
+#!/bin/sh
+case "$*" in
+  *"app state"*) cat /tmp/opl-feature-fixtures/state.json ;;
+  *"app action"*) echo '{"status":"executed","receipt_id":"fixture-receipt","summary":"Synthetic owner receipt"}' ;;
+  *) echo '{}' ;;
+esac
