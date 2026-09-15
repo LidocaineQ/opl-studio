@@ -8,6 +8,7 @@ export function featureCompletenessFixture(workspace = '/fixture/workspace') {
     agent_packages: { directory: { status: 'current', entries: agents.map(([id, name, skill]) => ({
       package_id: id, display_name: name, display_name_i18n: { 'zh-CN': name, 'en-US': name }, description: `${name} synthetic fixture`, publisher: 'One Person Lab', package_role: 'standard_agent', official: true,
       presence: { registered: true, installed: true, present: true, callable: true, status: 'present' },
+      activated: true,
       capability_metadata: { source: 'normalized_owner_manifest', required_skill_ids: [skill] },
       version: '0.0.0-fixture', readiness: { status: 'ready', operational_ready: true, launch_allowed: true },
       installed_readiness: { installed: true, physical_status: 'available', callability: 'callable' },
