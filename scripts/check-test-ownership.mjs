@@ -10,15 +10,17 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const scripts = packageJson.scripts ?? {};
-const excludedDirectories = new Set(['.git', 'node_modules', 'out', 'dist', 'build', 'coverage']);
+// Only this repository's own test roots. Walking the whole checkout would also
+// pick up the pinned App product checkout that CI places beside it.
+const scanRoots = ['desktop', 'scripts', 'tests'];
 const testFilePattern = /\.(?:test|spec)\.(?:mjs|mts|cjs|cts|js|jsx|ts|tsx)$/;
 
-function collectTestFiles(directory = root) {
+function collectTestFiles(directory) {
   const files = [];
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const entryPath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      if (excludedDirectories.has(entry.name)) {
+      if (entry.name === 'node_modules') {
         continue;
       }
       files.push(...collectTestFiles(entryPath));
@@ -26,6 +28,19 @@ function collectTestFiles(directory = root) {
     }
     if (testFilePattern.test(entry.name)) {
       files.push(path.relative(root, entryPath).split(path.sep).join('/'));
+    }
+  }
+  return files;
+}
+
+function collectRepositoryTestFiles() {
+  const files = fs.readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && testFilePattern.test(entry.name))
+    .map((entry) => entry.name);
+  for (const scanRoot of scanRoots) {
+    const directory = path.join(root, scanRoot);
+    if (fs.existsSync(directory)) {
+      files.push(...collectTestFiles(directory));
     }
   }
   return files;
@@ -93,7 +108,7 @@ function ownedPatterns() {
 
 const patterns = ownedPatterns();
 const matchers = patterns.map((pattern) => globToRegExp(pattern));
-const testFiles = collectTestFiles().sort();
+const testFiles = collectRepositoryTestFiles().sort();
 const unowned = testFiles.filter((file) => !matchers.some((matcher) => matcher.test(file)));
 
 if (unowned.length > 0) {
