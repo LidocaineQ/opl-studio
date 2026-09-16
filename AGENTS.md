@@ -24,9 +24,11 @@
 - Candidate evidence must not claim active-shell adoption, release readiness,
   production readiness, domain readiness, or artifact authority.
 - Keep packaged macOS and WebUI on the same renderer and bridge shape.
-- Write GitHub-visible text in English: commit subjects and bodies, pull request titles and bodies,
-  and release notes. Product names, code identifiers, paths, commands, and verbatim quotations are
-  excepted; commits already recorded in another language stay in history as they are.
+- Write new GitHub-visible text in English: commit subjects and bodies, pull request and issue
+  titles and bodies, comments, and release notes. Product names, code identifiers, paths, commands,
+  and verbatim quotations are excepted. When replying to an issue, pull request, or comment written
+  by someone else, reply in that author's language instead of converting the thread to English;
+  commits already recorded in another language stay in history as they are.
 - Follow the topic owners and lifecycle in `docs/README.md`. Fold completed
   implementation facts into their reference, remove obsolete checklists and
   prompts, and preserve only history with a durable decision or provenance role.
