@@ -66,29 +66,27 @@ Sources: [sandbox contract](https://github.com/deepseek-ai/deepseek-harness/tree
 `opl-framework-bridge` 读取 `workbench_services` 并派发
 `package_contribution_execute`，不新增 renderer RPC、数据库或调度循环。
 
-| 能力 | 实现插件 / owner | 入口与真实范围 |
-| --- | --- | --- |
-| 用户计划任务 | Framework `opl-workbench-services`；Temporal 官方 SDK / 服务 | Settings → 运行与维护 → 服务状态：单次、每日、每周、间隔，时区、编辑、暂停、恢复、删除、立即运行；Temporal history 保存结果引用 |
-| 计划执行 | `opl-codex-native` 的现有 transport | 每次运行新建 canonical thread，显式只读或工作区写权限；结果打开成功后关闭 Settings，失败保留原页面 |
-| Memory | Framework `opl-workbench-services` → 当前 `CODEX_HOME/memories` | Settings → 智能体与能力 → 指令：查看现有 Markdown，新增、修改、删除用户纠错建议；主记忆只读，建议交给原记忆系统处理 |
-| 领域记忆引用 | Framework `app_operator_drilldown.ref_family_refs.memory_refs` | 同页按需读取；兼容实际包裹层。没有 refs 不等于没有记忆能力 |
-| 数据管理 | Framework `opl-workbench-services` 与已有 Package/WebUI inventory | Settings → 工作区 → 数据与存储：App/Codex/Framework 只读用量，所属服务声明的过期日志可预览并清理；不删除源码、产物、凭据、会话或记忆 |
+| 能力 | Studio 入口 |
+| --- | --- |
+| 用户计划任务 | Settings → 运行与维护 → 服务状态：创建、编辑、暂停、恢复、删除、立即运行 |
+| 计划执行 | 每次运行新建 canonical thread，显式只读或工作区写权限；结果打开成功后关闭 Settings，失败保留原页面 |
+| Memory | Settings → 智能体与能力 → 指令：查看现有 Markdown，新增、修改、删除用户纠错建议 |
+| 领域记忆引用 | 同页按需读取；没有 refs 不等于没有记忆能力 |
+| 数据管理 | Settings → 工作区 → 数据与存储：只读用量与可预览清理 |
 
 官方 [`dsh-schedule`](https://github.com/deepseek-ai/deepseek-harness/tree/0a15e36e7f82b6ed45af6fa9759f29b40dcd965d/packages/schedule/schedule)
 及 [`ui-schedule`](https://github.com/deepseek-ai/deepseek-harness/tree/0a15e36e7f82b6ed45af6fa9759f29b40dcd965d/packages/client/ui-schedule)
-在当前固定版本提供会话内提醒和只读提醒目录，执行依赖 DSH root Agent/session。
-Studio 的计划任务需要 canonical Codex thread 和持久运行历史，因此不装载第二套
-DSH session 来迁就此插件。`cofy-x/dsh-cron`、`squirrel20/dsh-cron` 和
-`Whale-Zhang/dsh-cron-tasks` 的后端同样依赖 DSH Agent/session；其整套后端不采用。
-这里的 OPL 插件填补适配缺口，调度服务、SDK 和持久状态仍复用已有 Temporal。
-
-计划任务队列按机器和 canonical Codex home 隔离。删除会在 Temporal 中停用并隐藏
-任务定义，保留历史；运行中任务不会因删除定义而消失。重叠执行跳过，服务停机
-补偿窗口一分钟；App 未运行导致排队超过五分钟的启动跳过。App 需要保持运行，
-最小化可继续，退出后不承诺执行。日历采用 IANA 时区和 Temporal 的夏令时语义。
-预览有效期五分钟，执行必须匹配原输入并明确确认；同一任务的管理操作由 Temporal workflow 串行化，并复核 revision。
+的执行端依赖 DSH root Agent/session；`cofy-x/dsh-cron`、`squirrel20/dsh-cron` 和
+`Whale-Zhang/dsh-cron-tasks` 的后端同样依赖 DSH Agent/session，因此整套后端都不
+采用。任务定义、调度、队列窗口、清理范围、revision 与确认语义归 Framework 公开
+插件：见
+[工作台服务接口](https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/specs/workbench-services.md)
+与 [Architecture](architecture.md#workbench-services)。Studio 侧只渲染投影并派发
+owner action，不维护业务状态表；其执行器要求显式受限权限，并让超过五分钟的调度
+启动过期而不是静默执行。
 
 这些能力需要 Framework 的公开 `./cordis-profiles` 导出
-`startCordisWorkbenchServicesHost`。旧 Framework 会得到明确的升级提示，普通聊天
-不被阻塞；源码接入不代表已发布载体自动具备新导出。测试入口和证据层级见
-[Verification](verification.md)，安装包仍须绑定相应 Framework 版本再验收。
+`startCordisWorkbenchServicesHost`；缺少该导出时旧 Framework 会得到明确的升级
+提示，普通聊天不被阻塞。源码接入不代表已发布载体自动具备新导出：测试入口和
+证据层级见 [Verification](verification.md)，安装包仍须绑定相应 Framework 版本
+再验收。

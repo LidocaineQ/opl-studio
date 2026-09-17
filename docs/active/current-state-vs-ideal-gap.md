@@ -58,10 +58,10 @@ progress, maps, and canonical owner adapters.
 
 Public Preview distribution and a selected local Studio carrier do not transfer
 Stable adoption, runtime or Package authority, professional quality, or artifact
-acceptance. The retired private cross-thread protocol, host queue, delivery
-ledger, and bilateral receipts are not deferred work. A new orchestration
-requirement must originate with an explicit App product decision and reuse the
-current canonical owner.
+acceptance. Studio carries no private cross-thread orchestration surface: no
+proposal/dispatch/wait protocol, host queue, delivery ledger, or bilateral
+receipt is deferred work, so a new orchestration requirement needs an explicit
+App product decision and the current canonical owner.
 
 ## Maintenance
 

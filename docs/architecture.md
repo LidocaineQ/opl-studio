@@ -89,10 +89,10 @@ adapter and authority decision.
 
 The pinned `0.1.6-alpha.1` cohort follows the explicitly selected upstream Alpha
 channel. Its source, npm packages, vendored GUI and Host overlays are validated
-together. It is newer than the previous `0.1.5-rc.1` cohort. The apparent incompatibility with plugins declaring ranges such
-as `^0.1.0-rc.8` is not a downgrade: npm prerelease range matching does not
-automatically admit a prerelease from a different patch tuple, so
-`0.1.6-alpha.1` does not satisfy that range even though SemVer orders it later.
+together. A plugin declaring a range such as `^0.1.0-rc.8` does not admit this
+cohort: npm prerelease range matching requires the same patch tuple, so the newer
+prerelease is not an eligible range target even though SemVer orders it later.
+That is a range consequence, not a downgrade.
 
 Package metadata is only the first gate. A plugin is directly reusable when it
 registers a bounded `ctx.tools` capability or a renderer-only contribution
@@ -105,7 +105,7 @@ Changing its peer range alone would hide the real authority conflict.
 
 ## Client Composition Boundary
 
-Both the current AionUI shell and this DSH-derived Native candidate consume the
+Both the current AionUI shell and the DSH-derived Studio candidate consume the
 same App-owned Client Contribution ABI, product profile, slot vocabulary,
 trust/scope/order rules, typed RPC reads/events, canonical App actions, product
 state semantics, and disposal policy. Their renderer and package carrier may
@@ -232,7 +232,7 @@ Studio does not require, start, package, or read AionUI or AionCore.
 executable and starts `codex app-server --stdio` directly. Every carrier
 consumes OPL only through Framework state/action
 contracts; AionUI/AionCore managed-resource manifests, provider abstractions,
-session/database state, backend, and authentication are not Native runtime inputs.
+session/database state, backend, and authentication are not Studio runtime inputs.
 
 This independence creates a second Cordis Host process scope, not a second
 writer for the same truth. Codex still owns thread/turn truth, Framework still
@@ -269,7 +269,7 @@ rows as preview-only fallback.
 ## Codex Thread Boundary
 
 Codex App Server owns canonical thread identity, history, lifecycle,
-permissions, model catalog, and turn state. Native consumes the App Server
+permissions, model catalog, and turn state. Studio consumes the App Server
 thread/turn/event flow; `localStorage` is limited to UI selection, settings,
 and unsent drafts.
 
@@ -295,13 +295,13 @@ Opening a conversation performs a read-only
 ID. It does not import, copy, synchronize, or rewrite Codex history. Resume is
 an explicit lifecycle action and is not required merely to view history.
 
-The retired private cross-thread layer is not an adapter or product capability.
-Native has no separate proposal/dispatch/wait protocol, host queue, delivery
-ledger, bilateral coordination receipt, client-executed dynamic tool set, or
-cross-host handoff contract. AionUI Team is separately a shell-level
-multi-executor facility for Codex CLI, Claude Code, and other executors. It is
-not the Codex-native subagent capability and is outside this repository's
-thread adapter.
+Studio exposes no private cross-thread orchestration layer: it has no separate
+proposal/dispatch/wait protocol, host queue, delivery ledger, bilateral
+coordination receipt, client-executed dynamic tool set, or cross-host handoff
+contract, and none of these is a deferred work item. AionUI Team is separately a
+shell-level multi-executor facility for Codex CLI, Claude Code, and other
+executors; it is not the Codex-native subagent capability and is outside this
+repository's thread adapter.
 
 ## Model And Settings Boundary
 
@@ -312,7 +312,7 @@ declarative settings views into the existing Resources, Services, and
 Capabilities destinations; Studio does not create a second package registry.
 
 Model defaults, visible choices, labels, reasoning options, and fallback policy
-come from the App product profile plus fresh Codex `model/list` readback. Native
+come from the App product profile plus fresh Codex `model/list` readback. Studio
 must not maintain a second model catalog or silently replace an unavailable
 fixed selection.
 

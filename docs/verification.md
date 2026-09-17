@@ -166,7 +166,7 @@ approval, screen-reader qualification, a packaged or installed carrier, active
 shell adoption, or Release readiness.
 
 When the App checkout mounts this repository at the expected candidate path,
-the App owner can also run `npm run validate:candidate:native`. That is App
+the App owner can also run `npm run validate:candidate:studio`. That is App
 candidate-conformance evidence, not release adoption.
 
 ## Local Packaged-App Smoke
@@ -387,5 +387,5 @@ The receipt is `out/acceptance/workbench-services.json`.
 
 Framework's `tests/built/workbench-temporal.test.mjs`, with the same explicit
 `OPL_TEST_TEMPORAL_ADDRESS`, checks overlap and an actual one-minute timeout.
-These are functional integration evidence. Native bundle installation, VM,
-updater, signing, publication and active-shell adoption remain separate gates.
+These are functional integration evidence. Installed bundle, VM, updater,
+signing, publication and active-shell adoption remain separate gates.
