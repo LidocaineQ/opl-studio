@@ -2437,6 +2437,7 @@ export function App({
     const pendingMessages = messagesRef.current.concat([userMessage, pendingMessage]);
     pendingAssistantIdRef.current = pendingId;
     messagesRef.current = pendingMessages;
+    setHistoryPage(null);
     setMessages(pendingMessages);
     updatePrompt("");
     setComposerSelections([]);
